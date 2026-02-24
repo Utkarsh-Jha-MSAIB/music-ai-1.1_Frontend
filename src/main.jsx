@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 
 // If your file is named RAG.jsx (all caps) keep it exactly:
-import Rag from "./pages/RAG.jsx";
+import RAG from "./pages/Rag.jsx";
 
 // If it's named Rag.jsx instead, use:
 // import Rag from "./pages/Rag.jsx";
