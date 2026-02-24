@@ -1,6 +1,6 @@
 {
   "run_id": "Guitar_idx4000_sec20_seed123",
-  "created_at": "2026-02-24 02:28:33",
+  "created_at": "2026-02-24 15:26:47",
   "meta": {
     "requested_seconds": 20.0,
     "actual_seconds": 20.0,
@@ -68,16 +68,27 @@
   },
   "files": {
     "analysis.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis.json",
+    "analysis_by_file.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis_by_file.json",
+    "analysis__Bass_Stem.wav.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Bass_Stem.wav.json",
+    "analysis__Complete_Arrangement.wav.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Complete_Arrangement.wav.json",
+    "analysis__Drums_Stem.wav.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Drums_Stem.wav.json",
+    "analysis__Reference_Guitar.wav.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Reference_Guitar.wav.json",
     "Bass_Stem.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/Bass_Stem.wav",
     "Complete_Arrangement.png": "/demo/api_runs/Guitar_idx4000_sec20_seed123/Complete_Arrangement.png",
     "Complete_Arrangement.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/Complete_Arrangement.wav",
     "Drums_Stem.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/Drums_Stem.wav",
     "meta.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/meta.json",
     "meta_dashboard.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/meta_dashboard.json",
-    "Reference_Guitar.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/Reference_Guitar.wav",
-    "run_detail.json": "/demo/api_runs/Guitar_idx4000_sec20_seed123/run_detail.json"
+    "Reference_Guitar.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/Reference_Guitar.wav"
   },
   "download_zip_url": null,
   "default_track": "Complete_Arrangement.wav",
-  "runtime_sec": 80.09477043151855
+  "runtime_sec": 80.09477043151855,
+  "analysis_files": {
+    "Bass_Stem.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Bass_Stem.wav.json",
+    "Complete_Arrangement.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Complete_Arrangement.wav.json",
+    "Drums_Stem.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Drums_Stem.wav.json",
+    "Reference_Guitar.wav": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis__Reference_Guitar.wav.json"
+  },
+  "analysis_index_url": "/demo/api_runs/Guitar_idx4000_sec20_seed123/analysis_by_file.json"
 }
