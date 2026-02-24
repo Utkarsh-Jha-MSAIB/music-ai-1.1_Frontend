@@ -50,10 +50,22 @@ function joinUrl(base, path) {
   return `${base}/${path}`;                         // "foo/bar"
 }
 
-function recoWavUrlFromResult(resultObj) {
-  if (!resultObj) return "";
-  const u = resultObj.extension_wav_url || "";
-  return joinUrl(API, u);
+function recoWavUrlFromResult(resultObj, uploadId) {
+  const u = resultObj?.extension_wav_url || "";
+  if (!u) return "";
+
+  // absolute URL
+  if (/^https?:\/\//i.test(u)) return u;
+
+  // already rooted
+  if (u.startsWith("/")) return `${API}${u}`;
+
+  // if backend returns "files/xxx.wav" or "reco_x.wav"
+  // assume it's inside the upload folder:
+  if (uploadId) return `${API}/rag/${uploadId}/${u}`.replace(/\/+/g, "/").replace(":/", "://");
+
+  // fallback
+  return `${API}/${u}`;
 }
 
 function clamp(n, a, b) {
@@ -1778,7 +1790,7 @@ export default function Rag() {
     [results, activeIdx]
   );
 
-  const recoUrl = useMemo(() => recoWavUrlFromResult(activeReco), [activeReco]);
+  const recoUrl = useMemo(() => recoWavUrlFromResult(activeReco, uploadId), [activeReco, uploadId]);
 
   // ✅ UI hooks after refs exist
   const inputUI = useAudioUI(inputAudioRef);
@@ -2080,7 +2092,7 @@ export default function Rag() {
     const rObj = results?.[index];
     if (!rObj) return;
 
-    const url = recoWavUrlFromResult(rObj);
+    const url = recoWavUrlFromResult(rObj, uploadId);
     if (!url) return;
 
     setActiveIdx(index);
@@ -2093,7 +2105,9 @@ export default function Rag() {
     if (!el) return;
 
     console.log("PLAY RECO URL:", url);
-    
+    el.onerror = () => console.log("AUDIO ERROR", el.error, el.src);
+    el.onstalled = () => console.log("AUDIO STALLED", el.src);
+
     try {
       try { el.crossOrigin = "anonymous"; } catch {}
 
