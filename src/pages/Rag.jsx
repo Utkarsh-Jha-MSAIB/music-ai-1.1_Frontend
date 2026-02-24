@@ -1011,6 +1011,24 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    function resizeCanvasToBox() {
+      const dpr2 = Math.min(1.6, window.devicePixelRatio || 1);
+      const r = canvas.getBoundingClientRect();
+
+      // CSS pixel size
+      const w = Math.max(1, Math.ceil(r.width));
+      const h = Math.max(1, Math.ceil(r.height));
+
+      // Internal buffer size
+      canvas.width  = Math.ceil(w * dpr2);
+      canvas.height = Math.ceil(h * dpr2);
+
+      // Draw in CSS pixels
+      ctx.setTransform(dpr2, 0, 0, dpr2, 0, 0);
+
+      return { w, h, dpr2 };
+    }
+
     const hsla = (h, s, l, a) =>
       `hsla(${Math.floor((((h % 1) + 1) % 1) * 360)}, ${s}%, ${l}%, ${a})`;
 
