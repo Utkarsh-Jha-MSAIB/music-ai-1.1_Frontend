@@ -1,0 +1,37 @@
+[
+  {
+    "run_id": "Guitar_idx10678_sec20_seed123",
+    "created_at": "2026-02-24 02:28:33",
+    "seconds": 20.0,
+    "start_idx": 10678,
+    "leader": "Guitar"
+  },
+  {
+    "run_id": "Guitar_idx2805_sec20_seed123",
+    "created_at": "2026-02-24 02:28:33",
+    "seconds": 20.0,
+    "start_idx": 2805,
+    "leader": "Guitar"
+  },
+  {
+    "run_id": "Guitar_idx4000_sec20_seed123",
+    "created_at": "2026-02-24 02:28:33",
+    "seconds": 20.0,
+    "start_idx": 4000,
+    "leader": "Guitar"
+  },
+  {
+    "run_id": "Guitar_idx5000_sec20_seed123",
+    "created_at": "2026-02-24 02:28:33",
+    "seconds": 20.0,
+    "start_idx": 5000,
+    "leader": "Guitar"
+  },
+  {
+    "run_id": "Guitar_idx6400_sec20_seed123",
+    "created_at": "2026-02-24 02:28:33",
+    "seconds": 20.0,
+    "start_idx": 6400,
+    "leader": "Guitar"
+  }
+]
