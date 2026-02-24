@@ -1101,7 +1101,7 @@ body{
 }
 
 .lightPanelInner {
-  height: 320px;            /* pick your vibe: 220–320px */
+  height: 240px;            /* pick your vibe: 220–320px */
   width: 100%;
   overflow: hidden;
   border-radius: 16px;      /* optional if your panels are rounded */
