@@ -1270,3 +1270,35 @@ body{
   height: 100%;
   display: block;
 }
+
+/* ===== LightWall (single source of truth) ===== */
+.shellRag .lightPanel{
+  padding: 0;
+  height: clamp(220px, 34vh, 360px);
+  overflow: hidden;
+  display: flex;
+}
+
+.shellRag .lightPanelInner{
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* wrapper fills parent */
+.shellRag .ragLights{
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* canvas truly fills wrapper */
+.shellRag .ragLightsCanvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}

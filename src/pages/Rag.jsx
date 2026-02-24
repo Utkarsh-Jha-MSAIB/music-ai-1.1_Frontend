@@ -42,18 +42,18 @@ function ragAnalysisUrl(uploadId) {
     : "";
 }
 
+function joinUrl(base, path) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;      // absolute
+  if (!base) return path;                           // relative base
+  if (path.startsWith("/")) return `${base}${path}`; // normal "/..."
+  return `${base}/${path}`;                         // "foo/bar"
+}
+
 function recoWavUrlFromResult(resultObj) {
   if (!resultObj) return "";
-
-  // backend returns "/rag/<id>/files/....wav"
-  if (!DEMO) {
-    return resultObj.extension_wav_url ? `${API}${resultObj.extension_wav_url}` : "";
-  }
-
-  // demo export stores URLs under /demo/rag_uploads/...
   const u = resultObj.extension_wav_url || "";
-  if (!u) return "";
-  return u.startsWith("http") || u.startsWith("/") ? u : `${API}/${u}`;
+  return joinUrl(API, u);
 }
 
 function clamp(n, a, b) {
@@ -2092,6 +2092,8 @@ export default function Rag() {
     const el = recoAudioRef.current;
     if (!el) return;
 
+    console.log("PLAY RECO URL:", url);
+    
     try {
       try { el.crossOrigin = "anonymous"; } catch {}
 
@@ -2102,6 +2104,7 @@ export default function Rag() {
         el.load();
         await Promise.race([once(el, "canplay"), once(el, "loadeddata")]);
       }
+      
 
       await el.play();
     } catch (e) {
