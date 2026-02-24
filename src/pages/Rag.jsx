@@ -15,6 +15,25 @@ const DEMO = import.meta.env.VITE_DEMO === "1";
 const API = DEMO ? "/demo" : (import.meta.env.VITE_API_BASE_URL || "");
 
 /** --- tiny helpers --- **/
+async function fetchFirstOk(urls, options) {
+  let lastErr = null;
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, options);
+      if (r.ok) return { url, response: r };
+      lastErr = new Error(`${r.status} ${r.statusText} @ ${url}`);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("All candidates failed");
+}
+
+async function resolveFirstOkUrl(urls) {
+  const { url } = await fetchFirstOk(urls, { method: "GET" });
+  return url;
+}
+
 function ragHealthUrl() {
   return DEMO ? null : `${API}/health`;
 }
@@ -32,18 +51,6 @@ function inputWavUrl(uploadId) {
         ? `${API}/rag_uploads/${uploadId}/input.wav`
         : `${API}/rag/${uploadId}/files/input.wav`)
     : "";
-}
-
-async function fetchInputAnalysis(id) {
-  if (!id) return;
-  try {
-    const url = ragAnalysisUrl(id);   // use the helper you already wrote
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(await r.text());
-    setInputAnalysis(await r.json());
-  } catch {
-    setInputAnalysis(null);
-  }
 }
 
 function joinUrl(base, path) {
@@ -1820,6 +1827,8 @@ export default function Rag() {
   const activeUI = activePlayer === "reco" ? recoUI : inputUI;
 
   const activeName = uploadMeta?.filename ? niceName(uploadMeta.filename) : "Input";
+
+
   const loudnessUrl = useMemo(() => {
     if (activePlayer === "reco") return recoUrl;
     return inputUrl;
@@ -1953,13 +1962,20 @@ export default function Rag() {
   async function fetchInputAnalysis(id) {
     if (!id) return;
     try {
-      const url = DEMO
-        ? `${API}/rag_uploads/${id}/analysis_input.wav.json`
-        : `${API}/rag/${id}/analysis`;
+      const candidates = DEMO
+        ? [
+            // try common demo export names (add/remove as needed)
+            `${API}/rag_uploads/${id}/analysis_input.wav.json`,
+            `${API}/rag_uploads/${id}/analysis_input.json`,
+            `${API}/rag_uploads/${id}/analysis.json`,
+            `${API}/rag_uploads/${id}/analysis_input.wav.json?cachebust=${Date.now()}`,
+          ]
+        : [
+            `${API}/rag/${id}/analysis`,
+          ];
 
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(await r.text());
-      setInputAnalysis(await r.json());
+      const { response } = await fetchFirstOk(candidates);
+      setInputAnalysis(await response.json());
     } catch {
       setInputAnalysis(null);
     }
@@ -1995,17 +2011,8 @@ export default function Rag() {
 
       await fetchInputAnalysis(j.upload_id);
 
-      requestAnimationFrame(() => {
-        if (inputAudioRef.current) {
-          inputAudioRef.current.src = inputWavUrl(j.upload_id);
-        }
-        requestAnimationFrame(() => {
-          const el = inputAudioRef.current;
-          if (!el) return;
-          el.preload = "auto";
-          el.load();
-        });
-      });
+      await loadInputAudioForUpload(j.upload_id);
+
     } catch (e) {
       setStatus(String(e?.message || e));
       setUploadId(null);
@@ -2013,6 +2020,35 @@ export default function Rag() {
       setSelectedRunId(null);
     } finally {
       setBusy(false);
+    }
+  }
+
+  // ✅ (optional) ensure input audio loads the new src
+    async function loadInputAudioForUpload(id) {
+      const el = inputAudioRef.current;
+      if (!el || !id) return;
+
+      try {
+        const candidates = DEMO
+          ? [
+              `${API}/rag_uploads/${id}/input.wav`,
+              `${API}/rag_uploads/${id}/analysis_input.wav`,
+              `${API}/rag_uploads/${id}/input_20s.wav`,
+            ]
+          : [
+              `${API}/rag/${id}/files/input.wav`,
+            ];
+
+        const url = await resolveFirstOkUrl(candidates);
+
+        el.pause();
+        el.src = url;
+        el.preload = "auto";
+        el.load();
+      } catch {
+        el.removeAttribute("src");
+        try { el.load(); } catch {}
+      }
     }
   }
 
@@ -2096,16 +2132,8 @@ export default function Rag() {
 
     // ✅ actually fetch analysis
     fetchInputAnalysis(id);
+    loadInputAudioForUpload(id);
 
-    // ✅ (optional) ensure input audio loads the new src
-    requestAnimationFrame(() => {
-      const el = inputAudioRef.current;
-      if (!el) return;
-      el.src = inputWavUrl(id);
-      el.preload = "auto";
-      el.load();
-    });
-  }
 
   async function playRecoDirect(index) {
     const rObj = results?.[index];
