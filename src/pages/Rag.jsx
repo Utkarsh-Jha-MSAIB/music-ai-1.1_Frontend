@@ -991,18 +991,23 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const canvas = canvasRef.current;
     if (!canvas || !rect.w || !rect.h) return;
 
-    // ✅ ONE source of truth
-    const W = Math.max(1, Math.floor(rect.w));
-    const H = Math.max(1, Math.floor(rect.h));
+    // ✅ Use ceil so the bitmap is never smaller than the CSS box
+    const cssW = rect.w;
+    const cssH = rect.h;
 
-    // ✅ lock CSS size to match the same source
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
+    const W = Math.max(1, Math.ceil(cssW));
+    const H = Math.max(1, Math.ceil(cssH));
+
+    // ✅ Let CSS control layout size (100%); don't force px here
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
 
     const dpr = Math.min(1.6, window.devicePixelRatio || 1);
-    canvas.width = Math.floor(W * dpr);
-    canvas.height = Math.floor(H * dpr);
-    
+
+    // ✅ Internal pixel buffer sized to the CEILed box
+    canvas.width  = Math.ceil(W * dpr);
+    canvas.height = Math.ceil(H * dpr);
+
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 

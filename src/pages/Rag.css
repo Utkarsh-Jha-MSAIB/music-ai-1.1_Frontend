@@ -1042,3 +1042,11 @@ body{
   height: 100%;
   display: block;
 }
+
+.shellRag .ragLightsCanvas{
+  position:absolute;
+  inset:-1px;      /* <- tiny overscan to cover seams */
+  width:calc(100% + 2px);
+  height:calc(100% + 2px);
+  display:block;
+}
