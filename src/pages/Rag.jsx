@@ -964,9 +964,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const dpr = Math.min(1.6, window.devicePixelRatio || 1);
     canvas.width = Math.floor(W * dpr);
     canvas.height = Math.floor(H * dpr);
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-
+    
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
