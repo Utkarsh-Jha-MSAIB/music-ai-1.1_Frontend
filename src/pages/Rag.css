@@ -1209,3 +1209,29 @@ body{
 .ragLights:hover .ragLightsBadge{
   opacity: 0.92 !important;
 }
+
+/* Make the LightWall card have ZERO padding so there’s no exposed panel background */
+.lightPanel {
+  padding: 0 !important;
+  background: transparent;         /* optional: prevents dark card fill */
+  overflow: hidden;               /* keeps rounded corners clean */
+}
+
+/* Give the LightWall area a deterministic height */
+.lightPanelInner {
+  height: 240px;                  /* pick what you want */
+  /* or: aspect-ratio: 16 / 6; height auto */
+}
+
+/* Ensure canvas actually fills the available box */
+.ragLights {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.ragLightsCanvas {
+  display: block;                 /* kills inline-canvas baseline gaps */
+  width: 100%;
+  height: 100%;
+}
