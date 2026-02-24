@@ -1119,3 +1119,33 @@ body{
   overflow: hidden;
 }
 
+/* --- LIGHTWALL: force inner to fill, kill the bottom band --- */
+.shellRag .lightPanel{
+  display: flex;
+  flex-direction: column;
+  height: clamp(240px, 34vh, 360px);
+  padding: 12px;          /* keep your nice inset */
+  overflow: hidden;
+}
+
+.shellRag .lightPanelInner{
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;     /* 🔥 overrides any fixed height */
+  margin: 0 !important;        /* 🔥 kills leftover margins that create bands */
+  width: 100%;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  position: relative;
+}
+
+/* Ensure LightsWall fills the inner wrapper */
+.shellRag .lightPanelInner .ragLights,
+.shellRag .lightPanelInner .ragLightsCanvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
