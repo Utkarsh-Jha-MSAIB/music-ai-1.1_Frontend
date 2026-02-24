@@ -2324,11 +2324,6 @@ export default function Rag() {
       <main className="main">
         {/* 1) LightWall at TOP */}
         <section className="panel panelTight lightPanel">
-          <div className="panelHeaderTight">
-            <div className="panelTitle">LightWall</div>
-            <div className="panelHintTight">reactive canvas</div>
-          </div>
-
           <div className="lightPanelInner">
             <LightsWall audioRef={activeAudioRef} label="LightWall • Vibe" />
           </div>

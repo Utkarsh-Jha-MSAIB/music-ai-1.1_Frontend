@@ -1069,3 +1069,21 @@ body{
   height:100%;
   display:block;
 }
+
+/* LightWall: inner fills completely (no exposed panel bg band) */
+.shellRag .lightPanel{
+  display:flex;
+  flex-direction:column;
+  height: clamp(240px, 34vh, 360px);
+  overflow:hidden;
+  padding: 12px;              /* give the panel real padding */
+}
+
+.shellRag .lightPanelInner{
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;                  /* ✅ kill the band */
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.10);
+}
