@@ -1,0 +1,12 @@
+{
+  "leader": "Guitar",
+  "start_idx": 4000,
+  "seconds": 20.0,
+  "seed": 123,
+  "device": "cpu",
+  "data_path": "C:\\Music_AI_1.1\\core\\data\\processed\\features",
+  "models": {
+    "Bass": "C:\\Music_AI_1.1\\core\\checkpoints\\Bass.ckpt"
+  },
+  "arranger_ckpt": "C:\\Music_AI_1.1\\core\\checkpoints\\arranger.ckpt"
+}
