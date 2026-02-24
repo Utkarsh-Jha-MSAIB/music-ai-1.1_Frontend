@@ -57,14 +57,27 @@ function recoWavUrlFromResult(resultObj, uploadId) {
   // absolute URL
   if (/^https?:\/\//i.test(u)) return u;
 
-  // already rooted
+  // already rooted from the app origin
+  // (if API == "/demo", `${API}${u}` becomes "/demo/..." which is correct)
   if (u.startsWith("/")) return `${API}${u}`;
 
-  // if backend returns "files/xxx.wav" or "reco_x.wav"
-  // assume it's inside the upload folder:
-  if (uploadId) return `${API}/rag/${uploadId}/${u}`.replace(/\/+/g, "/").replace(":/", "://");
+  // DEMO: files are under /demo/rag_uploads/<uploadId>/
+  if (DEMO && uploadId) {
+    return `${API}/rag_uploads/${uploadId}/${u}`
+      .replace(/\/+/g, "/")
+      .replace(":/", "://");
+  }
 
-  // fallback
+  // NON-DEMO: backend-served files. Prefer your existing convention:
+  // /rag/<uploadId>/files/<wav>
+  if (!DEMO && uploadId) {
+    // If backend returns "files/xxx.wav" keep it, otherwise assume it's a file under /files/
+    const path = u.startsWith("files/") ? u : `files/${u}`;
+    return `${API}/rag/${uploadId}/${path}`
+      .replace(/\/+/g, "/")
+      .replace(":/", "://");
+  }
+
   return `${API}/${u}`;
 }
 

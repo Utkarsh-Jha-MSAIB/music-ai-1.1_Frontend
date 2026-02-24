@@ -1045,3 +1045,15 @@ body{
   height: 100%;
   display: block;
 }
+
+.shellRag .lightPanelInner{
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.shellRag .ragLights{
+  position: absolute;   /* <-- important */
+  inset: 0;
+}
