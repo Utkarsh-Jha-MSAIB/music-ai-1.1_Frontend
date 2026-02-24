@@ -1796,8 +1796,8 @@ export default function Rag() {
   const activeAudioRef = useMemo(() => {
     if (activeViz === "input") return inputAudioRef;
     if (activeViz === "reco") return recoAudioRef;
-    return nullRef; // const nullRef = useRef(null) outside
-  }, [activeViz]);
+    return null;
+  }, [activeViz, inputAudioRef, recoAudioRef]);
 
   function scrollNextReco() {
     const el = recoListRef.current;
