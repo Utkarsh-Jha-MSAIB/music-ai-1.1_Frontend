@@ -32,11 +32,21 @@ function runDetailUrl(runId) {
   return DEMO ? `${API}/api_runs/${runId}/run_detail.json` : `${API}/runs/${runId}`;
 }
 
-function analysisUrl(runId, fileName) {
-  // Demo uses a precomputed analysis.json per run (or per file if you prefer)
-  return DEMO
-    ? `${API}/api_runs/${runId}/analysis.json`
-    : `${API}/runs/${runId}/analysis?file=${encodeURIComponent(fileName)}`;
+function analysisUrl(runId, fileName, runDetail) {
+  if (DEMO) {
+    // Preferred: use run_detail.json mapping if present
+    const m = runDetail?.analysis_files;
+    if (m && fileName && m[fileName]) return m[fileName];
+
+    // Fallback: if you kept analysis_by_file.json as a mapping
+    // (only works if analysis_by_file.json is URL map, not full objects)
+    // return `${API}/api_runs/${runId}/analysis_by_file.json`;
+
+    // Legacy fallback:
+    return `${API}/api_runs/${runId}/analysis.json`;
+  }
+
+  return `${API}/runs/${runId}/analysis?file=${encodeURIComponent(fileName)}`;
 }
 
 function fileUrl(runId, filename, runDetail) {
@@ -914,7 +924,7 @@ export default function App() {
       setAnalysis(null);
       setStatus("Computing analytics…");
       try {
-        const url = analysisUrl(selectedRunId, selectedTrack);
+        const url = analysisUrl(selectedRunId, selectedTrack, runDetail);
         const r = await fetch(url);
         if (!r.ok) throw new Error("analysis failed");
         const j = await r.json();
