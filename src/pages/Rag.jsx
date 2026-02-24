@@ -2050,7 +2050,7 @@ export default function Rag() {
         try { el.load(); } catch {}
       }
     }
-  }
+  
 
   async function stitch() {
     if (DEMO) {
@@ -2130,9 +2130,10 @@ export default function Rag() {
 
     setStatus(savedResults.length ? "Loaded prior run ✦ (input + recos)" : "Loaded prior run (input only)…");
 
-    // ✅ actually fetch analysis
+    // ✅ actually fetch analysis + load audio
     fetchInputAnalysis(id);
     loadInputAudioForUpload(id);
+  } // ✅ <-- THIS was missing
 
 
   async function playRecoDirect(index) {
