@@ -1789,7 +1789,10 @@ export default function Rag() {
   const activeUI = activePlayer === "reco" ? recoUI : inputUI;
 
   const activeName = uploadMeta?.filename ? niceName(uploadMeta.filename) : "Input";
-  const loudnessUrl = inputUrl;
+  const loudnessUrl = useMemo(() => {
+    if (activePlayer === "reco") return recoUrl;
+    return inputUrl;
+  }, [activePlayer, recoUrl, inputUrl]);
 
   // client-side loudness (works for both)
   const loud = useLoudnessForUrl(loudnessUrl);
