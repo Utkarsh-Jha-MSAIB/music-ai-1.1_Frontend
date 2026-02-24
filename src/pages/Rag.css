@@ -1020,41 +1020,50 @@ body{
    ========================= */
 
 .shellRag .lightPanel{
-  /* panel itself */
-  display: flex;
-  flex-direction: column;
+  display:flex;
+  flex-direction:column;
 
-  /* choose ONE height strategy */
   height: clamp(240px, 34vh, 360px);
-  overflow: hidden;
-  padding: 12px;              /* keep your panel padding */
+  overflow:hidden;
+
+  /* IMPORTANT: your generic .panel already adds padding:12px
+     so do NOT add padding here or you’ll create extra space. */
+  padding: 0; /* <- key */
 }
 
+/* your existing header row */
 .shellRag .lightPanel .panelHeaderTight{
-  flex: 0 0 auto;             /* header takes its own height */
+  flex: 0 0 auto;
+  margin-bottom: 10px; /* since we removed panel padding */
+  padding: 12px 12px 0 12px;  /* recreate the spacing cleanly */
 }
 
+/* the container that should hold the canvas */
 .shellRag .lightPanelInner{
-  flex: 1 1 auto;             /* fill the rest */
-  min-height: 0;              /* IMPORTANT for flex children */
+  flex: 1 1 auto;
+  min-height: 0;
+
+  /* re-apply the padding around the inner area */
+  margin: 0 12px 12px 12px;
+
   position: relative;
   overflow: hidden;
   border-radius: 18px;
-
-  /* avoid a visible “dark patch” if canvas doesn’t cover for a frame */
-  background: transparent;
   border: 1px solid rgba(255,255,255,0.10);
+  background: transparent;
 }
 
-.shellRag .ragLights{
-  position: absolute;
-  inset: 0;
+/* make sure the lightwall wrapper fills the inner no matter what */
+.shellRag .lightPanelInner .ragLights{
+  position:absolute;
+  inset:0;
 }
 
-.shellRag .ragLightsCanvas{
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
+/* canvas fills wrapper */
+.shellRag .lightPanelInner .ragLightsCanvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
 }
