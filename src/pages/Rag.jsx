@@ -953,8 +953,13 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const canvas = canvasRef.current;
     if (!canvas || !rect.w || !rect.h) return;
 
-    const W = rect.w;
-    const H = rect.h;
+    // ✅ ONE source of truth
+    const W = Math.max(1, Math.floor(rect.w));
+    const H = Math.max(1, Math.floor(rect.h));
+
+    // ✅ lock CSS size to match the same source
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
 
     const dpr = Math.min(1.6, window.devicePixelRatio || 1);
     canvas.width = Math.floor(W * dpr);
