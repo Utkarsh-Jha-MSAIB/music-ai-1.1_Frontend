@@ -1,0 +1,65 @@
+{
+  "requested_seconds": 20.0,
+  "actual_seconds": 20.0,
+  "requested_start_index": 6400,
+  "runtime_sec": null,
+  "paths": {
+    "project_root": ".",
+    "checkpoints_dir": "core/checkpoints",
+    "outputs_dir": "outputs",
+    "features_candidates": [
+      "data/processed/features",
+      "core/data/processed/features"
+    ]
+  },
+  "checkpoints": {
+    "arranger": "arranger.ckpt",
+    "models": {
+      "Bass": "Bass.ckpt"
+    }
+  },
+  "instruments": {
+    "leader": "Guitar",
+    "arranger_followers": [
+      "Bass"
+    ],
+    "add_drums": true,
+    "drum_volume": 2.0,
+    "arranger_map": {
+      "Bass": 0,
+      "Drums": 1
+    },
+    "num_arranger_channels": 2
+  },
+  "generation": {
+    "manual_start_index": 1855,
+    "seconds": 20,
+    "const_window_sec": 4.0,
+    "noise_scale": {
+      "default": 0.05,
+      "Bass": 0.001
+    },
+    "seed": 123,
+    "device": "cpu",
+    "rhythmic_match_ds": 8
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "frame_rate": 250,
+    "hop_samples": 64,
+    "chroma_hop_length": 512,
+    "chroma_sr": 16000
+  },
+  "mix": {
+    "leader_gain": 0.65,
+    "duck_strength": 0.5,
+    "leader_to_acc_ratio": 0.9,
+    "leader_target_rms": 0.08
+  },
+  "io": {
+    "save_reference": true,
+    "save_stems": true,
+    "save_report_card": true,
+    "run_subdir": "api_runs"
+  }
+}
