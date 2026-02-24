@@ -1038,19 +1038,21 @@ body{
   padding: 12px 12px 0 12px;  /* recreate the spacing cleanly */
 }
 
-/* the container that should hold the canvas */
 .shellRag .lightPanelInner{
   flex: 1 1 auto;
   min-height: 0;
-
-  /* re-apply the padding around the inner area */
   margin: 0 12px 12px 12px;
 
   position: relative;
   overflow: hidden;
   border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.10);
-  background: transparent;
+
+  /* ✅ not transparent — prevents the “black band” look */
+  background:
+    radial-gradient(520px 260px at 25% 15%, rgba(168,85,247,0.14), transparent 70%),
+    radial-gradient(520px 260px at 80% 55%, rgba(59,130,246,0.10), transparent 72%),
+    rgba(0,0,0,0.18);
 }
 
 /* make sure the lightwall wrapper fills the inner no matter what */
