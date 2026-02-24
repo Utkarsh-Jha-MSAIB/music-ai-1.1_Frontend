@@ -1,15 +1,12 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import "./index.css";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Rag from "./pages/Rag.jsx";
 
-// If your file is named RAG.jsx (all caps) keep it exactly:
-import RAG from "./pages/Rag.jsx";
-
-// If it's named Rag.jsx instead, use:
-// import Rag from "./pages/Rag.jsx";
-
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <Rag />
-  </StrictMode>
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <BrowserRouter>
+    <Routes>
+      <Route path="/" element={<Navigate to="/rag" replace />} />
+      <Route path="/rag" element={<Rag />} />
+    </Routes>
+  </BrowserRouter>
 );
