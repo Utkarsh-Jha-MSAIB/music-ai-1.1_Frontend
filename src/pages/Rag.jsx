@@ -9,9 +9,53 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./Rag.css";
 
-const API = "http://localhost:8000";
+const DEMO = import.meta.env.VITE_DEMO === "1";
+
+// Option A: direct backend URL (recommended if your backend is hosted elsewhere)
+const API = DEMO ? "/demo" : (import.meta.env.VITE_API_BASE_URL || "");
 
 /** --- tiny helpers --- **/
+function ragHealthUrl() {
+  return DEMO ? null : `${API}/health`;
+}
+function ragReadinessUrl() {
+  return DEMO ? null : `${API}/readiness`;
+}
+
+function demoRagIndexUrl() {
+  return `${API}/rag_uploads.json`;
+}
+
+function inputWavUrl(uploadId) {
+  return uploadId
+    ? (DEMO
+        ? `${API}/rag_uploads/${uploadId}/input.wav`
+        : `${API}/rag/${uploadId}/files/input.wav`)
+    : "";
+}
+
+function ragAnalysisUrl(uploadId) {
+  return uploadId
+    ? (DEMO
+        ? `${API}/rag_uploads/${uploadId}/analysis_input.wav.json`
+        : `${API}/rag/${uploadId}/analysis`)
+    : "";
+}
+
+function recoWavUrlFromResult(resultObj) {
+  if (!resultObj) return "";
+
+  // backend returns "/rag/<id>/files/....wav"
+  if (!DEMO) {
+    return resultObj.extension_wav_url ? `${API}${resultObj.extension_wav_url}` : "";
+  }
+
+  // demo export stores URLs under /demo/rag_uploads/...
+  const u = resultObj.extension_wav_url || "";
+  if (!u) return "";
+  return u.startsWith("http") || u.startsWith("/") ? u : `${API}/${u}`;
+}
+
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
 }
@@ -1724,20 +1768,14 @@ export default function Rag() {
   const [activeViz, setActiveViz] = useState("none"); // input | reco | none
 
   // ✅ derived URLs BEFORE anything that reads them
-  const inputUrl = useMemo(
-    () => (uploadId ? `${API}/rag/${uploadId}/files/input.wav` : ""),
-    [uploadId]
-  );
+  const inputUrl = useMemo(() => inputWavUrl(uploadId), [uploadId]);
 
   const activeReco = useMemo(
     () => (results?.length ? results[clamp(activeIdx, 0, results.length - 1)] : null),
     [results, activeIdx]
   );
 
-  const recoUrl = useMemo(
-    () => (activeReco?.extension_wav_url ? `${API}${activeReco.extension_wav_url}` : ""),
-    [activeReco]
-  );
+  const recoUrl = useMemo(() => recoWavUrlFromResult(activeReco), [activeReco]);
 
   // ✅ UI hooks after refs exist
   const inputUI = useAudioUI(inputAudioRef);
@@ -1747,12 +1785,8 @@ export default function Rag() {
   const activePlayer = activeViz === "reco" ? "reco" : "input";
   const activeUI = activePlayer === "reco" ? recoUI : inputUI;
 
-  const activeName =
-    activePlayer === "reco"
-      ? (activeReco ? `Reco • Rank ${activeReco.rank ?? activeIdx + 1}` : "Reco")
-      : (uploadMeta?.filename ? niceName(uploadMeta.filename) : "Input");
-
-  const loudnessUrl = activePlayer === "reco" ? recoUrl : inputUrl;
+  const activeName = uploadMeta?.filename ? niceName(uploadMeta.filename) : "Input";
+  const loudnessUrl = inputUrl;
 
   // client-side loudness (works for both)
   const loud = useLoudnessForUrl(loudnessUrl);
@@ -1762,7 +1796,7 @@ export default function Rag() {
   const activeAudioRef = useMemo(() => {
     if (activeViz === "input") return inputAudioRef;
     if (activeViz === "reco") return recoAudioRef;
-    return { current: null };
+    return nullRef; // const nullRef = useRef(null) outside
   }, [activeViz]);
 
   function scrollNextReco() {
@@ -1810,19 +1844,41 @@ export default function Rag() {
   const marqueeRuns = useMemo(() => (runs?.length ? runs.concat(runs) : []), [runs]);
 
   useEffect(() => {
-    fetch(`${API}/health`)
+    if (DEMO) {
+      setBackendOk(false);
+      setReadyInfo({ ready: true });
+      return;
+    }
+
+    fetch(ragHealthUrl())
       .then((r) => setBackendOk(r.ok))
       .catch(() => setBackendOk(false));
 
-    fetch(`${API}/readiness`)
+    fetch(ragReadinessUrl())
       .then(async (r) => {
-        try {
-          setReadyInfo(await r.json());
-        } catch {
-          setReadyInfo(null);
-        }
+        try { setReadyInfo(await r.json()); } catch { setReadyInfo(null); }
       })
       .catch(() => setReadyInfo(null));
+  }, []);
+
+  useEffect(() => {
+    if (!DEMO) return;
+
+    (async () => {
+      try {
+        const r = await fetch(demoRagIndexUrl());
+        if (!r.ok) throw new Error("demo index missing");
+        const j = await r.json();
+        if (Array.isArray(j) && j.length) {
+          setRuns(j);
+          saveRuns(j);
+          if (!selectedRunId) setSelectedRunId(j[0].upload_id);
+        }
+      } catch {
+        // fall back to whatever localStorage has
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1860,10 +1916,13 @@ export default function Rag() {
   async function fetchInputAnalysis(id) {
     if (!id) return;
     try {
-      const r = await fetch(`${API}/rag/${id}/analysis`);
+      const url = DEMO
+        ? `${API}/rag_uploads/${id}/analysis_input.wav.json`
+        : `${API}/rag/${id}/analysis`;
+
+      const r = await fetch(url);
       if (!r.ok) throw new Error(await r.text());
-      const j = await r.json();
-      setInputAnalysis(j);
+      setInputAnalysis(await r.json());
     } catch {
       setInputAnalysis(null);
     }
@@ -1921,6 +1980,25 @@ export default function Rag() {
   }
 
   async function stitch() {
+    if (DEMO) {
+      setBusy(true);
+      setStatus("Loading demo results…");
+      try {
+        const r = await fetch(`${API}/rag_uploads/${uploadId}/rag_results.json`);
+        if (!r.ok) throw new Error(await r.text());
+        const j = await r.json();
+        const arr = Array.isArray(j.results) ? j.results : [];
+        setResults(arr);
+        setActiveIdx(0);
+        setStatus(arr.length ? "Recommendations ready ✦" : "No matches found");
+        setRuns(upsertRunResults(uploadId, { results: arr, last_active_idx: 0 }));
+      } catch (e) {
+        setStatus(String(e?.message || e));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!uploadId) return;
     setBusy(true);
     setStatus("Finding extensions…");
@@ -1968,36 +2046,38 @@ export default function Rag() {
     const id = run.upload_id;
     setSelectedRunId(id);
 
-    // Load input for that run
     setUploadId(id);
     setUploadMeta({ filename: run.filename });
 
-    // ✅ Load saved results (if any)
     const savedResults = Array.isArray(run.results) ? run.results : [];
     setResults(savedResults);
+
     const idx = Number.isFinite(run.last_active_idx) ? run.last_active_idx : 0;
     setActiveIdx(clamp(idx, 0, Math.max(0, savedResults.length - 1)));
 
     setStatus(savedResults.length ? "Loaded prior run ✦ (input + recos)" : "Loaded prior run (input only)…");
 
+    // ✅ actually fetch analysis
     fetchInputAnalysis(id);
 
+    // ✅ (optional) ensure input audio loads the new src
     requestAnimationFrame(() => {
-      if (inputAudioRef.current) {
-        inputAudioRef.current.src = `${API}/rag/${id}/files/input.wav`;
-        inputAudioRef.current.preload = "auto";
-        inputAudioRef.current.load();
-      }
+      const el = inputAudioRef.current;
+      if (!el) return;
+      el.src = inputWavUrl(id);
+      el.preload = "auto";
+      el.load();
     });
   }
 
   async function playRecoDirect(index) {
     const rObj = results?.[index];
-    if (!rObj?.extension_wav_url) return;
+    if (!rObj) return;
 
-    const url = `${API}${rObj.extension_wav_url}`;
+    const url = recoWavUrlFromResult(rObj);
+    if (!url) return;
+
     setActiveIdx(index);
-
     if (uploadId) setRuns(upsertRunResults(uploadId, { last_active_idx: index }));
 
     setActiveViz("reco");
@@ -2023,7 +2103,7 @@ export default function Rag() {
     }
   }
 
-  const canStitch = !!uploadId && !busy && backendOk && ready !== false;
+  const canStitch = !!uploadId && !busy && (DEMO || (backendOk && ready !== false));
 
   return (
     <div className="shellRag">
@@ -2237,7 +2317,6 @@ export default function Rag() {
                 <button
                   className={`playBtn ${inputUI.playing ? "isPlaying" : ""}`}
                   onClick={inputUI.toggle}
-                  aria-label="Play/Pause"
                   type="button"
                 >
                   <span className="playIcon" />

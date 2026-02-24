@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
-const API = "http://localhost:8000";
+const DEMO = import.meta.env.VITE_DEMO === "1";
+const API = DEMO ? "/demo" : "http://localhost:8000";
 
 /** --- tiny helpers --- **/
 function clamp(n, a, b) {
@@ -22,6 +23,34 @@ function niceName(filename) {
 function isWav(name) {
   return (name || "").toLowerCase().endsWith(".wav");
 }
+function runsListUrl() {
+  return DEMO ? `${API}/runs.json` : `${API}/runs`;
+}
+
+function runDetailUrl(runId) {
+  // In demo mode we load a prebuilt run_detail.json per run
+  return DEMO ? `${API}/api_runs/${runId}/run_detail.json` : `${API}/runs/${runId}`;
+}
+
+function analysisUrl(runId, fileName) {
+  // Demo uses a precomputed analysis.json per run (or per file if you prefer)
+  return DEMO
+    ? `${API}/api_runs/${runId}/analysis.json`
+    : `${API}/runs/${runId}/analysis?file=${encodeURIComponent(fileName)}`;
+}
+
+function fileUrl(runId, filename, runDetail) {
+  if (DEMO) return `${API}/api_runs/${runId}/${filename}`;
+  // backend: files map already contains full endpoint path like "/runs/<id>/files/<file>"
+  const p = runDetail?.files?.[filename];
+  return p ? `${API}${p}` : "";
+}
+
+function zipUrl(runId, runDetail) {
+  if (DEMO) return `${API}/api_runs/${runId}/download.zip`; // only if you include it
+  return runDetail?.download_zip_url ? `${API}${runDetail.download_zip_url}` : "";
+}
+
 function pickDefaultTrack(filesDict) {
   if (!filesDict) return null;
   const keys = Object.keys(filesDict);
@@ -123,7 +152,7 @@ function CanvasLineChart({
     const canvas = canvasRef.current;
     if (!canvas || !width) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(1.6, window.devicePixelRatio || 1);
     const W = Math.max(10, Math.floor(width));
     const H = height;
 
@@ -818,19 +847,21 @@ export default function App() {
 
   /** initial load */
   useEffect(() => {
-    fetch(`${API}/health`)
-      .then((r) => setBackendOk(r.ok))
-      .catch(() => setBackendOk(false));
+    if (!DEMO) {
+      fetch(`${API}/health`)
+        .then((r) => setBackendOk(r.ok))
+        .catch(() => setBackendOk(false));
 
-    fetch(`${API}/readiness`)
-      .then(async (r) => {
-        try {
-          setReadyInfo(await r.json());
-        } catch {
-          setReadyInfo(null);
-        }
-      })
-      .catch(() => setReadyInfo(null));
+      fetch(`${API}/readiness`)
+        .then(async (r) => {
+          try { setReadyInfo(await r.json()); } catch { setReadyInfo(null); }
+        })
+        .catch(() => setReadyInfo(null));
+    } else {
+      // demo mode: pretend backend is down, but UI still works
+      setBackendOk(false);
+      setReadyInfo({ ready: true });
+    }
 
     refreshRuns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -838,7 +869,7 @@ export default function App() {
 
   async function refreshRuns() {
     try {
-      const r = await fetch(`${API}/runs`);
+      const r = await fetch(runsListUrl());
       if (!r.ok) throw new Error("runs list failed");
       const j = await r.json();
       setRuns(Array.isArray(j) ? j : []);
@@ -859,14 +890,14 @@ export default function App() {
       setAudioUrl("");
       setStatus("Loading run…");
       try {
-        const r = await fetch(`${API}/runs/${selectedRunId}`);
+        const r = await fetch(runDetailUrl(selectedRunId));
         if (!r.ok) throw new Error(`failed to load run ${selectedRunId}`);
         const j = await r.json();
         setRunDetail(j);
 
         const defaultTrack = pickDefaultTrack(j.files);
         setSelectedTrack(defaultTrack);
-        if (defaultTrack) setAudioUrl(`${API}${j.files[defaultTrack]}`);
+        if (defaultTrack) setAudioUrl(fileUrl(selectedRunId, defaultTrack, j));
 
         setStatus("");
       } catch (e) {
@@ -883,7 +914,7 @@ export default function App() {
       setAnalysis(null);
       setStatus("Computing analytics…");
       try {
-        const url = `${API}/runs/${selectedRunId}/analysis?file=${encodeURIComponent(selectedTrack)}`;
+        const url = analysisUrl(selectedRunId, selectedTrack);
         const r = await fetch(url);
         if (!r.ok) throw new Error("analysis failed");
         const j = await r.json();
@@ -1228,7 +1259,7 @@ export default function App() {
                         className={`trackTab ${selectedTrack === name ? "trackTabActive" : ""}`}
                         onClick={() => {
                           setSelectedTrack(name);
-                          setAudioUrl(`${API}${files[name]}`);
+                          setAudioUrl(fileUrl(selectedRunId, name, runDetail));
                         }}
                         title={name}
                       >
@@ -1298,13 +1329,17 @@ export default function App() {
                   )}
 
                   <div className="downloadRow downloadRowSm">
-                    {runDetail?.download_zip_url && (
-                      <a className="linkBtn linkBtnSm" href={`${API}${runDetail.download_zip_url}`}>
+                    {zipUrl(selectedRunId, runDetail) && (
+                      <a className="linkBtn linkBtnSm" href={zipUrl(selectedRunId, runDetail)}>
                         Download ZIP
                       </a>
                     )}
-                    {selectedTrack && files[selectedTrack] && (
-                      <a className="linkBtn linkBtnSm" href={`${API}${files[selectedTrack]}`} download>
+                    {selectedTrack && (
+                      <a
+                        className="linkBtn linkBtnSm"
+                        href={fileUrl(selectedRunId, selectedTrack, runDetail)}
+                        download
+                      >
                         Download Track
                       </a>
                     )}

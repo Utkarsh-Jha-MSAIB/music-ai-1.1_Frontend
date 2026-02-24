@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# local demo exports / generated demo content
+public/demo/
+export_rag_demo.py
+export_runs_demo.py
