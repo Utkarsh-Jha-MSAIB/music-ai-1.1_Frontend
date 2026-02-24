@@ -34,12 +34,16 @@ function inputWavUrl(uploadId) {
     : "";
 }
 
-function ragAnalysisUrl(uploadId) {
-  return uploadId
-    ? (DEMO
-        ? `${API}/rag_uploads/${uploadId}/analysis_input.wav.json`
-        : `${API}/rag/${uploadId}/analysis`)
-    : "";
+async function fetchInputAnalysis(id) {
+  if (!id) return;
+  try {
+    const url = ragAnalysisUrl(id);   // use the helper you already wrote
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(await r.text());
+    setInputAnalysis(await r.json());
+  } catch {
+    setInputAnalysis(null);
+  }
 }
 
 function joinUrl(base, path) {
@@ -51,33 +55,35 @@ function joinUrl(base, path) {
 }
 
 function recoWavUrlFromResult(resultObj, uploadId) {
-  const u = resultObj?.extension_wav_url || "";
+  if (!resultObj) return "";
+
+  // accept multiple possible fields
+  let u =
+    resultObj.extension_wav_url ||
+    resultObj.extension_wav ||
+    resultObj.extension_wav_filename ||
+    resultObj.wav ||
+    resultObj.filename ||
+    "";
+
   if (!u) return "";
+
+  // normalize: ensure it ends with .wav (demo files do)
+  if (!/\.wav$/i.test(u)) u = `${u}.wav`;
 
   // absolute URL
   if (/^https?:\/\//i.test(u)) return u;
 
-  // already rooted from the app origin
-  // (if API == "/demo", `${API}${u}` becomes "/demo/..." which is correct)
+  // already rooted path returned by backend
   if (u.startsWith("/")) return `${API}${u}`;
 
-  // DEMO: files are under /demo/rag_uploads/<uploadId>/
-  if (DEMO && uploadId) {
-    return `${API}/rag_uploads/${uploadId}/${u}`
-      .replace(/\/+/g, "/")
-      .replace(":/", "://");
-  }
+  // DEMO files live at: /demo/rag_uploads/<uploadId>/<filename>
+  if (DEMO && uploadId) return `${API}/rag_uploads/${uploadId}/${u}`;
 
-  // NON-DEMO: backend-served files. Prefer your existing convention:
-  // /rag/<uploadId>/files/<wav>
-  if (!DEMO && uploadId) {
-    // If backend returns "files/xxx.wav" keep it, otherwise assume it's a file under /files/
-    const path = u.startsWith("files/") ? u : `files/${u}`;
-    return `${API}/rag/${uploadId}/${path}`
-      .replace(/\/+/g, "/")
-      .replace(":/", "://");
-  }
+  // NON-DEMO: /rag/<uploadId>/files/<filename>
+  if (!DEMO && uploadId) return `${API}/rag/${uploadId}/files/${u}`;
 
+  // fallback
   return `${API}/${u}`;
 }
 
@@ -1991,7 +1997,7 @@ export default function Rag() {
 
       requestAnimationFrame(() => {
         if (inputAudioRef.current) {
-          inputAudioRef.current.src = `${API}/rag/${j.upload_id}/files/input.wav`;
+          inputAudioRef.current.src = inputWavUrl(j.upload_id);
         }
         requestAnimationFrame(() => {
           const el = inputAudioRef.current;
@@ -2118,11 +2124,14 @@ export default function Rag() {
     if (!el) return;
 
     console.log("PLAY RECO URL:", url);
-    el.onerror = () => console.log("AUDIO ERROR", el.error, el.src);
-    el.onstalled = () => console.log("AUDIO STALLED", el.src);
 
     try {
-      try { el.crossOrigin = "anonymous"; } catch {}
+      if (DEMO) {
+        const head = await fetch(url, { method: "GET" });
+        console.log("Reco fetch status:", head.status);
+      }
+
+      el.onerror = () => console.log("AUDIO ERROR", el.error, el.src);
 
       if (el.src !== url) {
         el.pause();
@@ -2131,7 +2140,6 @@ export default function Rag() {
         el.load();
         await Promise.race([once(el, "canplay"), once(el, "loadeddata")]);
       }
-      
 
       await el.play();
     } catch (e) {
