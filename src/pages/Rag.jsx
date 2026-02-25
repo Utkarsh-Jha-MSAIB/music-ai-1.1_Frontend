@@ -240,7 +240,7 @@ function CanvasLineChart({
     if (!canvas || !w) return;
 
     const dpr = Math.min(1.6, window.devicePixelRatio || 1);
-    const W = Math.max(10, Math.floor(width));
+    const W = Math.max(10, Math.floor(w));   // ✅ was width (undefined)
     const H = height;
 
     canvas.width = Math.floor(W * dpr);
@@ -479,7 +479,7 @@ function CanvasLineChart({
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("mouseleave", onLeave);
     };
-  }, [x, y, width, height, palette, yLabel, yMin, yMax, sparkle]);
+  }, [x, y, w, height, palette, yLabel, yMin, yMax, sparkle]); // ✅ was width
 
   return (
     <div className="chartCard">
