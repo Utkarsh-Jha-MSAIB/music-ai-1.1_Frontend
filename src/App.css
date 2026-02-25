@@ -1355,3 +1355,43 @@ body{
     height: 260px;
   }
 }
+
+/* ===== Mobile scroll fix ===== */
+html, body {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+/* if you have any body overflow hidden anywhere, this overrides it on mobile */
+@media (max-width: 900px) {
+  body {
+    overflow-y: auto !important;
+  }
+
+  /* Make the top-level app NOT lock to viewport height */
+  .shell {
+    height: auto !important;
+    min-height: 100dvh;   /* better than 100vh on mobile browsers */
+    overflow-y: auto !important;
+    overflow-x: hidden;
+  }
+
+  /* These sometimes block scroll if they’re set to fixed height */
+  .main {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .sidebar {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* If your right tesseract panel is fixed/absolute, it can trap touch scroll */
+  .tesseract {
+    position: relative !important;
+    height: auto !important;
+  }
+}
