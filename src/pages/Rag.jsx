@@ -909,7 +909,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const rnd = mulberry32(seed);
 
     const Z_LAYERS = [0.10, 0.18, 0.30, 0.46, 0.66, 0.96, 1.34];
-    const strandCount = 15;
+    const strandCount = 20;
 
     const strands = [];
     const bulbs = [];

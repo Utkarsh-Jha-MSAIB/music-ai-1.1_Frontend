@@ -97,13 +97,20 @@ function shortStemLabel(name) {
   return "Stem";
 }
 
-function sortTracksCompleteFirst(a, b) {
+function sortTracksCompleteFirstBassLast(a, b) {
   const la = (a || "").toLowerCase();
   const lb = (b || "").toLowerCase();
+
   const aIsComplete = la.includes("complete");
   const bIsComplete = lb.includes("complete");
   if (aIsComplete && !bIsComplete) return -1;
   if (!aIsComplete && bIsComplete) return 1;
+
+  const aIsBass = la.includes("bass");
+  const bIsBass = lb.includes("bass");
+  if (aIsBass && !bIsBass) return 1;   // bass goes later
+  if (!aIsBass && bIsBass) return -1;
+
   return la.localeCompare(lb);
 }
 
@@ -976,7 +983,10 @@ export default function App() {
   }
 
   const files = runDetail?.files || {};
-  const wavNames = useMemo(() => Object.keys(files).filter(isWav).sort(sortTracksCompleteFirst), [files]);
+  const wavNames = useMemo(
+    () => Object.keys(files).filter(isWav).sort(sortTracksCompleteFirstBassLast),
+    [files]
+  );
   const score = analysis?.scores || null;
 
   const selectedInst = useMemo(() => instrumentFromFilename(selectedTrack), [selectedTrack]);
