@@ -1132,7 +1132,8 @@ export default function App() {
             disabled={!backendOk || ready === false}
             title={(!backendOk || ready === false) ? "Locked in Demo Mode" : "Generate a new run"}
           >
-            {(!backendOk || ready === false) ? <LockInline label="Locked" /> : "Generate"}
+            <span className="btnIconLeft">{(!backendOk || ready === false) ? <span className="lockGlyph" /> : null}</span>
+            Generate
           </button>
 
           <button
@@ -1141,7 +1142,8 @@ export default function App() {
             disabled={!backendOk || ready === false}
             title={(!backendOk || ready === false) ? "Locked in Demo Mode" : "Refresh runs"}
           >
-            {(!backendOk || ready === false) ? <LockInline label="Locked" /> : "Refresh"}
+            <span className="btnIconLeft">{(!backendOk || ready === false) ? <span className="lockGlyph" /> : null}</span>
+            Refresh
           </button>
         </div>
 
