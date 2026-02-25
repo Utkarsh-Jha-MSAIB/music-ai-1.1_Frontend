@@ -180,25 +180,24 @@ function useResizeObserver(ref) {
   const [rect, setRect] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
-    if (!wrapRef.current) return;
+    const el = ref?.current;
+    if (!el) return;
 
-    const el = wrapRef.current;
-    const ro = new ResizeObserver(() => {
-      // IMPORTANT: use getBoundingClientRect() (includes effects of layout)
+    const measure = () => {
       const r = el.getBoundingClientRect();
       const w = Math.floor(r.width);
       const h = Math.floor(r.height);
       if (w > 0 && h > 0) setRect({ w, h });
-    });
+    };
 
+    measure();
+
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
 
-    // kick once
-    const r0 = el.getBoundingClientRect();
-    setRect({ w: Math.floor(r0.width), h: Math.floor(r0.height) });
-
     return () => ro.disconnect();
-  }, []);
+  }, [ref]);
+
   return rect;
 }
 
@@ -231,14 +230,14 @@ function CanvasLineChart({
 }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
-  const { width } = useResizeObserver(wrapRef);
+  const { w } = useResizeObserver(wrapRef);
 
   const hoverRef = useRef({ active: false, mx: 0, my: 0 });
   const rafRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !width) return;
+    if (!canvas || !w) return;
 
     const dpr = Math.min(1.6, window.devicePixelRatio || 1);
     const W = Math.max(10, Math.floor(width));
@@ -839,12 +838,20 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
   });
 
   useEffect(() => {
-    if (!wrapRef.current) return;
-    const ro = new ResizeObserver((e) => {
-      const r = e[0]?.contentRect;
-      if (r) setRect({ w: r.width, h: r.height });
-    });
-    ro.observe(wrapRef.current);
+    const el = wrapRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const w = Math.floor(r.width);
+      const h = Math.floor(r.height);
+      if (w > 0 && h > 0) setRect({ w, h });
+    };
+
+    measure();
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
