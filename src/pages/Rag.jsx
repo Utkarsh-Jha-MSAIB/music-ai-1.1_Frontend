@@ -961,7 +961,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     for (let si = 0; si < strandCount; si++) {
       const z = Z_LAYERS[si % Z_LAYERS.length];
 
-      const Y_SHIFT = -H * 0.0123; // move up 10% of canvas height (try -0.06 to -0.16)
+      const Y_SHIFT = -H * 0.08; // move up 10% of canvas height (try -0.06 to -0.16)
       
       const yBase = H * (0.14 + rnd() * 0.72);
       const p0 = { x: -60, y: yBase + (rnd() - 0.5) * 40 };
