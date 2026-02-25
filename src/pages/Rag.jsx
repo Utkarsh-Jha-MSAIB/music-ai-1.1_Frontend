@@ -800,7 +800,6 @@ function noise2(t, seed) {
   return hash11(t + seed) * 2 - 1;
 }
 
-/** ---------- Stranger Lights Canvas (FIXED: no black patches • nebula kept • correct draw order/composites) ---------- **/
 function LightsWall({ audioRef, label = "Tesseract • mix" }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -991,43 +990,17 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const canvas = canvasRef.current;
     if (!canvas || !rect.w || !rect.h) return;
 
-    // ✅ Use ceil so the bitmap is never smaller than the CSS box
-    const cssW = rect.w;
-    const cssH = rect.h;
-
-    const W = Math.max(1, Math.ceil(cssW));
-    const H = Math.max(1, Math.ceil(cssH));
-
-    // ✅ Let CSS control layout size (100%); don't force px here
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
+    const W = rect.w;
+    const H = rect.h;
 
     const dpr = Math.min(1.6, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
 
-    // ✅ Internal pixel buffer sized to the CEILed box
-    canvas.width  = Math.ceil(W * dpr);
-    canvas.height = Math.ceil(H * dpr);
-
-    const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
+    const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    function resizeCanvasToBox() {
-      const dpr2 = Math.min(1.6, window.devicePixelRatio || 1);
-      const r = canvas.getBoundingClientRect();
-
-      // CSS pixel size
-      const w = Math.max(1, Math.ceil(r.width));
-      const h = Math.max(1, Math.ceil(r.height));
-
-      // Internal buffer size
-      canvas.width  = Math.ceil(w * dpr2);
-      canvas.height = Math.ceil(h * dpr2);
-
-      // Draw in CSS pixels
-      ctx.setTransform(dpr2, 0, 0, dpr2, 0, 0);
-
-      return { w, h, dpr2 };
-    }
 
     const hsla = (h, s, l, a) =>
       `hsla(${Math.floor((((h % 1) + 1) % 1) * 360)}, ${s}%, ${l}%, ${a})`;
