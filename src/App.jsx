@@ -91,9 +91,9 @@ function instrumentFromFilename(name) {
 function shortStemLabel(name) {
   const inst = instrumentFromFilename(name);
   if (inst === "mix") return "Complete";
-  if (inst === "bass") return "Bass";
   if (inst === "drums") return "Drums";
   if (inst === "guitar") return "Guitar";
+  if (inst === "bass") return "Bass";
   return "Stem";
 }
 
