@@ -61,40 +61,58 @@ function joinUrl(base, path) {
   return `${base}/${path}`;                         // "foo/bar"
 }
 
+function basename(p) {
+  try {
+    const s = String(p || "");
+    return s.split("?")[0].split("#")[0].split("/").pop();
+  } catch {
+    return "";
+  }
+}
+
 function recoWavUrlFromResult(resultObj, uploadId) {
   if (!resultObj) return "";
 
-  // accept multiple possible fields
+  // prefer filename fields, but accept urls too
   let u =
     resultObj.extension_wav_url ||
     resultObj.extension_wav ||
     resultObj.extension_wav_filename ||
+    resultObj.arranged_wav_url ||
+    resultObj.arranged_wav ||
+    resultObj.stitched_wav_url ||
+    resultObj.stitched_wav ||
+    resultObj.full_wav_url ||
+    resultObj.full_wav ||
     resultObj.wav ||
     resultObj.filename ||
     "";
 
   if (!u) return "";
 
-  // normalize: ensure it ends with .wav (demo files do)
+  // If backend gave us "/rag/....", DEMO must rewrite to static public file.
+  if (DEMO && uploadId) {
+    const file = basename(u);
+    if (!file) return "";
+    // try both with/without .wav (windows sometimes hides it, manifests vary)
+    if (/\.wav$/i.test(file)) return `${API}/rag_uploads/${uploadId}/${file}`;
+    return `${API}/rag_uploads/${uploadId}/${file}.wav`;
+  }
+
+  // normalize: ensure it ends with .wav (non-demo)
   if (!/\.wav$/i.test(u)) u = `${u}.wav`;
 
   // absolute URL
   if (/^https?:\/\//i.test(u)) return u;
 
-  // already rooted path returned by backend
+  // rooted path
   if (u.startsWith("/")) {
-    // ✅ prevent "/demo" double-prefix in demo
     if (API && u.startsWith(API + "/")) return u;
     return `${API}${u}`;
   }
 
-  // DEMO files live at: /demo/rag_uploads/<uploadId>/<filename>
-  if (DEMO && uploadId) return `${API}/rag_uploads/${uploadId}/${u}`;
-
-  // NON-DEMO: /rag/<uploadId>/files/<filename>
+  // NON-DEMO fallback
   if (!DEMO && uploadId) return `${API}/rag/${uploadId}/files/${u}`;
-
-  // fallback
   return `${API}/${u}`;
 }
 
@@ -2048,42 +2066,29 @@ export default function Rag() {
   }
 
   // ✅ (optional) ensure input audio loads the new src
-    async function loadInputAudioForUpload(id) {
-      const el = inputAudioRef.current;
-      if (!el || !id) return;
-
-      try {
-        const candidates = DEMO
-          ? [
-              `${API}/rag_uploads/${id}/input.wav`,
-              `${API}/rag_uploads/${id}/analysis_input.wav`,
-              `${API}/rag_uploads/${id}/input_20s.wav`,
-            ]
-          : [
-              `${API}/rag/${id}/files/input.wav`,
-            ];
-
-        const url = await resolveFirstOkUrl(candidates);
-
-        el.pause();
-        el.src = url;
-        el.preload = "auto";
-        el.load();
-      } catch {
-        el.removeAttribute("src");
-        try { el.load(); } catch {}
-      }
-    }
-  
+    const candidates = DEMO
+      ? [
+          `${API}/rag_uploads/${id}/input.wav`,
+          `${API}/rag_uploads/${id}/input`,              // ✅ add this
+          `${API}/rag_uploads/${id}/analysis_input.wav`,
+          `${API}/rag_uploads/${id}/analysis_input`,
+          `${API}/rag_uploads/${id}/input_20s.wav`,
+          `${API}/rag_uploads/${id}/input_20s`,
+        ]
+      : [
+          `${API}/rag/${id}/files/input.wav`,
+        ]; 
 
   async function stitch() {
     if (DEMO) {
       setBusy(true);
       setStatus("Loading demo results…");
       try {
-        const r = await fetch(`${API}/rag_uploads/${uploadId}/rag_results.json`);
-        if (!r.ok) throw new Error(await r.text());
-        const j = await r.json();
+        const { response } = await fetchFirstOk([
+          `${API}/rag_uploads/${uploadId}/rag_results.json`,
+          `${API}/rag_uploads/${uploadId}/rag_results`,          // ✅ add this
+        ]);
+        const j = await response.json();
         const arr = Array.isArray(j.results) ? j.results : [];
         setResults(arr);
         setActiveIdx(0);
