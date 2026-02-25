@@ -29,10 +29,11 @@ async function fetchFirstOk(urls, options) {
   throw lastErr || new Error("All candidates failed");
 }
 
+/** --- Stable seed (identical everywhere if VITE_LW_SEED is set) --- */
+const LW_SEED_KEY = "rag_lightswall_seed_v2";
 const LW_SEED_ENV = import.meta.env.VITE_LW_SEED; // e.g. "stranger-things-v1"
 
 function xfnv1a32(str) {
-  // simple string -> uint32 hash
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
@@ -42,20 +43,21 @@ function xfnv1a32(str) {
 }
 
 function getStableSeed() {
-  // 1) If you set VITE_LW_SEED, it becomes identical everywhere.
+  // 1) Cross-browser stable (recommended)
   if (LW_SEED_ENV && String(LW_SEED_ENV).trim()) {
     return xfnv1a32(String(LW_SEED_ENV).trim());
   }
 
-  // 2) Fallback: keep your old per-browser persistence
+  // 2) Per-browser stable fallback (deterministic)
   try {
     const existing = localStorage.getItem(LW_SEED_KEY);
     if (existing) return Number(existing) >>> 0;
-    const seed = (Math.random() * 2 ** 32) >>> 0;
+
+    const seed = 1337; // deterministic fallback (NOT Math.random)
     localStorage.setItem(LW_SEED_KEY, String(seed));
     return seed;
   } catch {
-    return 1337; // final deterministic fallback
+    return 1337;
   }
 }
 
@@ -828,7 +830,6 @@ function useStableAudioAnalyserRef(activeAudioRef) {
 }
 
 /** --- Seeded RNG so layout never changes on refresh --- */
-const LW_SEED_KEY = "rag_lightswall_seed_v2";
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -839,17 +840,7 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function getStableSeed() {
-  try {
-    const existing = localStorage.getItem(LW_SEED_KEY);
-    if (existing) return Number(existing) >>> 0;
-    const seed = (Math.random() * 2 ** 32) >>> 0;
-    localStorage.setItem(LW_SEED_KEY, String(seed));
-    return seed;
-  } catch {
-    return (Math.random() * 2 ** 32) >>> 0;
-  }
-}
+
 function smoothstep(a, b, x) {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
