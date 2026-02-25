@@ -1015,58 +1015,197 @@ body{
 .shellRag .recoNextBtn:hover{ transform: translateY(-1px); border-color: rgba(245,247,255,0.22); }
 .shellRag .recoNextBtn:active{ transform: translateY(0px); }
 
-/* =========================
-   LightWall (single source of truth)
-   ========================= */
-
-.shellRag .lightPanel{
-  display:flex;
-  flex-direction:column;
-
-  height: clamp(240px, 34vh, 360px);
-  overflow:hidden;
-
-  /* IMPORTANT: your generic .panel already adds padding:12px
-     so do NOT add padding here or you’ll create extra space. */
-  padding: 0; /* <- key */
+/* --- LightWall panel must have a real height --- */
+.lightPanel {
+  padding: 0 !important;
 }
 
-/* your existing header row */
-.shellRag .lightPanel .panelHeaderTight{
-  flex: 0 0 auto;
-  margin-bottom: 10px; /* since we removed panel padding */
-  padding: 12px 12px 0 12px;  /* recreate the spacing cleanly */
-}
-
-.shellRag .lightPanelInner{
-  flex: 1 1 auto;
-  min-height: 0;
-  margin: 0 12px 12px 12px;
-
+.lightPanelInner {
+  height: clamp(220px, 34vh, 360px); /* pick your vibe */
+  width: 100%;
   position: relative;
   overflow: hidden;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.10);
-
-  /* ✅ not transparent — prevents the “black band” look */
-  background:
-    radial-gradient(520px 260px at 25% 15%, rgba(168,85,247,0.14), transparent 70%),
-    radial-gradient(520px 260px at 80% 55%, rgba(59,130,246,0.10), transparent 72%),
-    rgba(0,0,0,0.18);
+  border-radius: var(--r);
 }
 
-/* make sure the lightwall wrapper fills the inner no matter what */
-.shellRag .lightPanelInner .ragLights{
-  position:absolute;
-  inset:0;
+/* --- LightsWall wrapper fills its parent --- */
+.ragLights {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
 }
 
-/* canvas fills wrapper */
-.shellRag .lightPanelInner .ragLightsCanvas{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  display:block;
+/* --- Canvas MUST fill the wrapper --- */
+.ragLightsCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
+/* Badge should sit above canvas */
+.ragLightsBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* LightWall wrapper MUST create a stacking context */
+.ragLights{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;            /* clip canvas nicely */
+  border-radius: 16px;
+}
+
+/* Canvas sits underneath */
+.ragLightsCanvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+}
+
+/* Badge sits ABOVE canvas no matter what */
+.ragLightsBadge{
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 5;                  /* higher than canvas */
+  pointer-events: none;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 8px 10px;
+  border-radius: 999px;
+
+  color: rgba(233,236,255,0.92);
+  font: 600 12px/1 system-ui;
+
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  text-shadow: 0 1px 10px rgba(0,0,0,0.55);
+}
+
+/* little diamond glow */
+.ragLightsBadgeDiamond{
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+  transform: rotate(45deg);
+  background: radial-gradient(circle at 30% 30%,
+    rgba(255,255,255,0.9),
+    rgba(255,120,200,0.55),
+    rgba(90,140,255,0.15)
+  );
+  box-shadow:
+    0 0 10px rgba(255,120,200,0.35),
+    0 0 16px rgba(90,140,255,0.22);
+} 
+
+/* ===== LightWall badge: NUCLEAR FORCE OVERRIDE ===== */
+.ragLights{
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  isolation: isolate !important;     /* prevents blend/composite weirdness */
+}
+
+/* Put canvas firmly underneath */
+.ragLightsCanvas{
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 0 !important;
+}
+
+/* Force badge visible no matter what */
+.ragLightsBadge{
+  position: absolute !important;
+  left: 14px !important;
+  top: 14px !important;
+  z-index: 999999 !important;
+
+  display: inline-flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+
+  pointer-events: none !important;
+
+  padding: 10px 12px !important;
+  border-radius: 999px !important;
+
+  color: #ffffff !important;
+  font: 700 13px/1 system-ui !important;
+  letter-spacing: 0.2px !important;
+
+  background: rgba(0,0,0,0.55) !important;  /* make it unmistakable */
+  border: 1px solid rgba(255,255,255,0.22) !important;
+
+  text-shadow: 0 2px 14px rgba(0,0,0,0.75) !important;
+}
+
+/* Diamond visible too */
+.ragLightsBadgeDiamond{
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 4px !important;
+  transform: rotate(45deg) !important;
+  background: rgba(255,255,255,0.9) !important;
+  box-shadow: 0 0 12px rgba(255,255,255,0.35) !important;
+}
+
+/* ===== LightWall badge: subtle whisper mode ===== */
+
+/* keep it above canvas */
+.ragLightsBadge{
+  left: 16px !important;
+  top: 14px !important;
+
+  padding: 7px 10px !important;
+  border-radius: 999px !important;
+
+  font: 500 10px/1 system-ui !important;
+  letter-spacing: 0.15px !important;
+
+  color: rgba(233,236,255,0.80) !important;
+  background: rgba(6,10,20,0.28) !important;     /* subtle glass */
+  border: 1px solid rgba(255,255,255,0.10) !important;
+
+  box-shadow: none !important;
+  text-shadow: 0 1px 10px rgba(0,0,0,0.35) !important;
+
+  backdrop-filter: blur(6px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(120%) !important;
+
+  opacity: 0.72 !important;
+}
+
+/* tiny diamond, not a flashlight */
+.ragLightsBadgeDiamond{
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 3px !important;
+  background: rgba(233,236,255,0.55) !important;
+  box-shadow: 0 0 10px rgba(233,236,255,0.14) !important;
+}
+
+/* OPTIONAL: only show clearly when hovering LightWall */
+.ragLights:hover .ragLightsBadge{
+  opacity: 0.92 !important;
+}
