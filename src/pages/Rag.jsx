@@ -2023,6 +2023,39 @@ export default function Rag() {
     }
   }
 
+  async function loadInputAudioForUpload(id) {
+    const el = inputAudioRef.current;
+    if (!el || !id) return;
+
+    const candidates = DEMO
+      ? [
+          `${API}/rag_uploads/${id}/input.wav`,
+          `${API}/rag_uploads/${id}/input`,
+          `${API}/rag_uploads/${id}/analysis_input.wav`,
+          `${API}/rag_uploads/${id}/analysis_input`,
+          `${API}/rag_uploads/${id}/input_20s.wav`,
+          `${API}/rag_uploads/${id}/input_20s`,
+        ]
+      : [
+          `${API}/rag/${id}/files/input.wav`,
+        ];
+
+    try {
+      // find first URL that returns 200
+      const okUrl = await resolveFirstOkUrl(candidates);
+
+      // force reload
+      if (el.src !== okUrl) {
+        el.pause();
+        el.src = okUrl;
+        el.preload = "auto";
+        el.load();
+      }
+    } catch (e) {
+      console.log("Input audio not found:", e);
+    }
+  }
+
   async function uploadWav(file) {
     setBusy(true);
     setStatus("Uploading…");
@@ -2064,36 +2097,30 @@ export default function Rag() {
       setBusy(false);
     }
   }
-
-  // ✅ (optional) ensure input audio loads the new src
-    const candidates = DEMO
-      ? [
-          `${API}/rag_uploads/${id}/input.wav`,
-          `${API}/rag_uploads/${id}/input`,              // ✅ add this
-          `${API}/rag_uploads/${id}/analysis_input.wav`,
-          `${API}/rag_uploads/${id}/analysis_input`,
-          `${API}/rag_uploads/${id}/input_20s.wav`,
-          `${API}/rag_uploads/${id}/input_20s`,
-        ]
-      : [
-          `${API}/rag/${id}/files/input.wav`,
-        ]; 
+ 
 
   async function stitch() {
     if (DEMO) {
+      const id = uploadId || selectedRunId;
+      if (!id) {
+        setStatus("Pick a demo run first.");
+        return;
+      }
+
       setBusy(true);
       setStatus("Loading demo results…");
       try {
         const { response } = await fetchFirstOk([
-          `${API}/rag_uploads/${uploadId}/rag_results.json`,
-          `${API}/rag_uploads/${uploadId}/rag_results`,          // ✅ add this
+          `${API}/rag_uploads/${id}/rag_results.json`,
+          `${API}/rag_uploads/${id}/rag_results`,
         ]);
         const j = await response.json();
         const arr = Array.isArray(j.results) ? j.results : [];
         setResults(arr);
         setActiveIdx(0);
+        setUploadId(id); // ✅ ensure uploadId set so reco URLs resolve
         setStatus(arr.length ? "Recommendations ready ✦" : "No matches found");
-        setRuns(upsertRunResults(uploadId, { results: arr, last_active_idx: 0 }));
+        setRuns(upsertRunResults(id, { results: arr, last_active_idx: 0 }));
       } catch (e) {
         setStatus(String(e?.message || e));
       } finally {
