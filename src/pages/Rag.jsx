@@ -1,10 +1,10 @@
-// Rag.jsx  (LAYOUT FIX: LightWall truly top • no black band • right column smaller • single reco block • no reco curve)
+// Rag.jsx  (LAYOUT FIX + DARKPATCH FIX + RECO PLAY FIX + LOUDNESS CHART ROBUSTNESS)
 // Drop-in replacement for your current Rag.jsx.
-// What changed:
-// ✅ Middle column is a clean vertical stack: LightWall -> KPIs -> Input Player -> Loudness -> Premium Buffer
-// ✅ LightWall panel height is controlled by CSS (no extra black area)
-// ✅ Right column: smaller width + ONLY the reco list (no reco loudness chart)
-// ✅ Keeps your LightsWall + analyser logic intact (only layout + small cleanup)
+//
+// Extra fixes in THIS version:
+// ✅ “dark patch / black slab” hardening: canvas always paints opaque full-frame; DPR + resize are synced to the CSS box
+// ✅ Reco playback reliability: sets crossOrigin before src, resets currentTime, waits for canplay/loadedmetadata, retries once
+// ✅ Loudness chart robustness: single shared AudioContext (no churn), fetch uses CORS mode, graceful fallback + error hint
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./Rag.css";
@@ -12,7 +12,7 @@ import "./Rag.css";
 const DEMO = import.meta.env.VITE_DEMO === "1";
 
 // Option A: direct backend URL (recommended if your backend is hosted elsewhere)
-const API = DEMO ? "/demo" : (import.meta.env.VITE_API_BASE_URL || "");
+const API = DEMO ? "/demo" : import.meta.env.VITE_API_BASE_URL || "";
 
 /** --- tiny helpers --- **/
 async function fetchFirstOk(urls, options) {
@@ -47,51 +47,10 @@ function demoRagIndexUrl() {
 
 function inputWavUrl(uploadId) {
   return uploadId
-    ? (DEMO
-        ? `${API}/rag_uploads/${uploadId}/input.wav`
-        : `${API}/rag/${uploadId}/files/input.wav`)
+    ? DEMO
+      ? `${API}/rag_uploads/${uploadId}/input.wav`
+      : `${API}/rag/${uploadId}/files/input.wav`
     : "";
-}
-
-function joinUrl(base, path) {
-  if (!path) return "";
-  if (/^https?:\/\//i.test(path)) return path;      // absolute
-  if (!base) return path;                           // relative base
-  if (path.startsWith("/")) return `${base}${path}`; // normal "/..."
-  return `${base}/${path}`;                         // "foo/bar"
-}
-
-function recoWavUrlFromResult(resultObj, uploadId) {
-  if (!resultObj) return "";
-
-  // accept multiple possible fields
-  let u =
-    resultObj.extension_wav_url ||
-    resultObj.extension_wav ||
-    resultObj.extension_wav_filename ||
-    resultObj.wav ||
-    resultObj.filename ||
-    "";
-
-  if (!u) return "";
-
-  // normalize: ensure it ends with .wav (demo files do)
-  if (!/\.wav$/i.test(u)) u = `${u}.wav`;
-
-  // absolute URL
-  if (/^https?:\/\//i.test(u)) return u;
-
-  // already rooted path returned by backend
-  if (u.startsWith("/")) return `${API}${u}`;
-
-  // DEMO files live at: /demo/rag_uploads/<uploadId>/<filename>
-  if (DEMO && uploadId) return `${API}/rag_uploads/${uploadId}/${u}`;
-
-  // NON-DEMO: /rag/<uploadId>/files/<filename>
-  if (!DEMO && uploadId) return `${API}/rag/${uploadId}/files/${u}`;
-
-  // fallback
-  return `${API}/${u}`;
 }
 
 function clamp(n, a, b) {
@@ -108,18 +67,11 @@ function niceName(filename) {
   if (!filename) return "";
   return filename.replace(/_/g, " ").replace(/\.wav$/i, "");
 }
-
 function clampInt(n, a, b) {
   const x = Math.trunc(Number(n));
   if (!Number.isFinite(x)) return a;
   return Math.max(a, Math.min(b, x));
 }
-
-function asNumOr(fallback, v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
 function once(el, ev) {
   return new Promise((res) => {
     const h = () => {
@@ -145,20 +97,15 @@ function saveRuns(runs) {
     localStorage.setItem(LS_KEY, JSON.stringify(runs.slice(0, 40)));
   } catch {}
 }
-
 function addRunEntry(entry) {
   const prev = loadRuns();
   const next = [
-    { ...entry }, // newest first
-    ...prev
-      .filter((x) => x.upload_id !== entry.upload_id)
-      .map((x) => ({ ...x })),
+    { ...entry },
+    ...prev.filter((x) => x.upload_id !== entry.upload_id).map((x) => ({ ...x })),
   ];
   saveRuns(next);
   return next;
 }
-
-// NEW: attach results to an existing run (or create if missing)
 function upsertRunResults(upload_id, patch) {
   const prev = loadRuns();
   let found = false;
@@ -217,6 +164,7 @@ function CanvasLineChart({
   yMin = null,
   yMax = null,
   sparkle = true,
+  hint = "hover for values",
 }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -246,9 +194,10 @@ function CanvasLineChart({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
 
+      // paint opaque-ish background so nothing “shows through”
       const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, "rgba(6,10,20,0.88)");
-      bg.addColorStop(1, "rgba(6,10,20,0.72)");
+      bg.addColorStop(0, "rgba(6,10,20,0.92)");
+      bg.addColorStop(1, "rgba(6,10,20,0.80)");
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
@@ -475,7 +424,7 @@ function CanvasLineChart({
     <div className="chartCard">
       <div className="chartTitleRow">
         <div className="chartTitle">{title}</div>
-        <div className="chartHint">hover for values</div>
+        <div className="chartHint">{hint}</div>
       </div>
       <div ref={wrapRef} className="chartWrap">
         <canvas ref={canvasRef} />
@@ -524,6 +473,11 @@ function useStableAudioAnalyserRef(activeAudioRef) {
     const gain = ctx.createGain();
     gain.gain.value = 1.0;
 
+    // IMPORTANT: crossOrigin must be set BEFORE src is used for CORS-safe analysis
+    try {
+      if (!el.crossOrigin) el.crossOrigin = "anonymous";
+    } catch {}
+
     const source = ctx.createMediaElementSource(el);
     source.connect(analyser);
     analyser.connect(gain);
@@ -569,10 +523,6 @@ function useStableAudioAnalyserRef(activeAudioRef) {
       v.bands.fill(0);
       return;
     }
-
-    try {
-      if (!el.crossOrigin) el.crossOrigin = "anonymous";
-    } catch {}
 
     let mounted = true;
 
@@ -800,7 +750,7 @@ function noise2(t, seed) {
   return hash11(t + seed) * 2 - 1;
 }
 
-/** ---------- Stranger Lights Canvas (FIXED: no black patches • nebula kept • correct draw order/composites) ---------- **/
+/** ---------- Stranger Lights Canvas ---------- **/
 function LightsWall({ audioRef, label = "Tesseract • mix" }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -814,7 +764,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
   const strandsRef = useRef([]);
   const orderRef = useRef([]);
 
-  const strandBulbIdsRef = useRef([]); // [ [bulbId, bulbId, ...], ... ] per strand
+  const strandBulbIdsRef = useRef([]); // [ [bulbId,...], ... ]
 
   const strandsSortedRef = useRef([]);
   const bulbsSortedRef = useRef([]);
@@ -848,7 +798,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const seed = stateRef.current.seed;
     const rnd = mulberry32(seed);
 
-    const Z_LAYERS = [0.10, 0.18, 0.30, 0.46, 0.66, 0.96, 1.34];
+    const Z_LAYERS = [0.1, 0.18, 0.3, 0.46, 0.66, 0.96, 1.34];
     const strandCount = 15;
 
     const strands = [];
@@ -857,7 +807,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
 
     const huePalette = [0.0, 0.08, 0.16, 0.34, 0.5, 0.62, 0.78, 0.86];
 
-    // --- background “nebula” particles (PRECOMPUTED, no per-frame Math.random => no flicker/patched areas)
     const dust = [];
     const dustN = Math.floor((W * H) / 3200);
     for (let i = 0; i < dustN; i++) {
@@ -866,7 +815,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         x: rnd() * W,
         y: rnd() * H,
         r: (0.7 + rnd() * 2.4) * (0.45 + z * 0.75),
-        a: 0.05 + rnd() * 0.10,
+        a: 0.05 + rnd() * 0.1,
         hue: huePalette[Math.floor(rnd() * huePalette.length)],
         z,
         tw: 0.6 + rnd() * 1.6,
@@ -882,13 +831,12 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         x: rnd() * W,
         y: rnd() * H,
         r: 0.35 + rnd() * 0.9,
-        a: 0.04 + rnd() * 0.10,
+        a: 0.04 + rnd() * 0.1,
         z,
         ph: rnd() * 10,
       });
     }
 
-    // “film grain” speckle, subtle, stable
     const speck = [];
     const speckN = Math.floor((W * H) / 5200);
     for (let i = 0; i < speckN; i++) {
@@ -901,7 +849,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       });
     }
 
-    // Nebula “cloud blobs” (a handful of big, stable radial gradients)
     const clouds = [];
     const cloudN = 9;
     for (let i = 0; i < cloudN; i++) {
@@ -958,7 +905,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       }
     }
 
-    // Build per-strand bulb id lists (sorted left->right by u)
     const perStrand = Array.from({ length: strandCount }, () => []);
     for (const b of bulbs) perStrand[b.si].push(b);
     for (let si = 0; si < perStrand.length; si++) {
@@ -991,43 +937,8 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
     const canvas = canvasRef.current;
     if (!canvas || !rect.w || !rect.h) return;
 
-    // ✅ Use ceil so the bitmap is never smaller than the CSS box
-    const cssW = rect.w;
-    const cssH = rect.h;
-
-    const W = Math.max(1, Math.ceil(cssW));
-    const H = Math.max(1, Math.ceil(cssH));
-
-    // ✅ Let CSS control layout size (100%); don't force px here
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
-
-    const dpr = Math.min(1.6, window.devicePixelRatio || 1);
-
-    // ✅ Internal pixel buffer sized to the CEILed box
-    canvas.width  = Math.ceil(W * dpr);
-    canvas.height = Math.ceil(H * dpr);
-
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    function resizeCanvasToBox() {
-      const dpr2 = Math.min(1.6, window.devicePixelRatio || 1);
-      const r = canvas.getBoundingClientRect();
-
-      // CSS pixel size
-      const w = Math.max(1, Math.ceil(r.width));
-      const h = Math.max(1, Math.ceil(r.height));
-
-      // Internal buffer size
-      canvas.width  = Math.ceil(w * dpr2);
-      canvas.height = Math.ceil(h * dpr2);
-
-      // Draw in CSS pixels
-      ctx.setTransform(dpr2, 0, 0, dpr2, 0, 0);
-
-      return { w, h, dpr2 };
-    }
+    // HARDEN: tie render buffer to CSS box *every time* (prevents “edge black bands”)
+    const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
 
     const hsla = (h, s, l, a) =>
       `hsla(${Math.floor((((h % 1) + 1) % 1) * 360)}, ${s}%, ${l}%, ${a})`;
@@ -1046,7 +957,33 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       };
     }
 
-    function getPoint(s, u, time, wallAmp) {
+    const resizeToBox = () => {
+      const dpr = Math.min(1.6, window.devicePixelRatio || 1);
+      const r = canvas.getBoundingClientRect();
+      const w = Math.max(1, Math.ceil(r.width));
+      const h = Math.max(1, Math.ceil(r.height));
+
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+
+      const bw = Math.ceil(w * dpr);
+      const bh = Math.ceil(h * dpr);
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { w, h };
+    };
+
+    let box = resizeToBox();
+    const ro = new ResizeObserver(() => {
+      box = resizeToBox();
+    });
+    ro.observe(canvas);
+
+    function getPoint(s, u, time, wallAmp, W, H) {
       const it = 1 - u;
       const x =
         it ** 3 * s.p0.x +
@@ -1206,14 +1143,15 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       ctx2.restore();
     }
 
-    function drawFullNebulaBackground(ctx2, time, wallAmp) {
+    function drawFullNebulaBackground(ctx2, time, wallAmp, W, H) {
+      // OPAQUE base every frame -> no “transparent edge” artifacts
       ctx2.globalCompositeOperation = "source-over";
       ctx2.globalAlpha = 1;
 
       const scene = sceneRef.current;
       if (!scene) return;
 
-      // ---------- 0) Cache a stable “poster texture” (no flicker) ----------
+      // stable texture cache keyed to W/H
       if (!scene.bgTex2 || scene.bgTex2W !== W || scene.bgTex2H !== H) {
         const tex = document.createElement("canvas");
         const TW = Math.max(320, Math.floor(W / 2.6));
@@ -1228,7 +1166,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
           return s - Math.floor(s);
         };
 
-        // Grain + cloud mask (brighter-biased than last time)
         const img = tctx.createImageData(TW, TH);
         const d = img.data;
 
@@ -1241,7 +1178,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
             const n3 = hash(x * 0.19 + y * 0.14 + 91.7);
 
             let n = n1 * 0.52 + n2 * 0.33 + n3 * 0.15;
-            // bias toward midtones (poster is not “crushed blacks”)
             n = Math.pow(n, 1.15);
 
             const g = Math.floor(255 * n);
@@ -1253,13 +1189,11 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         }
         tctx.putImageData(img, 0, 0);
 
-        // soften into cloudy stuff
         tctx.filter = "blur(5px)";
         tctx.globalCompositeOperation = "source-over";
         tctx.drawImage(tex, 0, 0);
         tctx.filter = "blur(0px)";
 
-        // a few very soft dark blobs (but gentle — poster still bright)
         tctx.globalCompositeOperation = "multiply";
         for (let k = 0; k < 5; k++) {
           const u = hash(1000 + k * 17.7);
@@ -1276,7 +1210,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
           tctx.fillRect(0, 0, TW, TH);
         }
 
-        // tiny bright flecks (poster glitter)
         tctx.globalCompositeOperation = "screen";
         for (let i = 0; i < 240; i++) {
           const x = hash(5000 + i * 3.1) * TW;
@@ -1296,35 +1229,33 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         scene.bgTex2H = H;
       }
 
-      // ---------- 1) Base: brighter deep magenta-to-blue (NOT flat red, NOT too dark) ----------
       const base = ctx2.createLinearGradient(0, 0, W, H);
-      base.addColorStop(0.00, "rgba(14, 12, 32, 1)");  // deep blue-violet
-      base.addColorStop(0.28, "rgba(44, 10, 46, 1)");  // purple
-      base.addColorStop(0.55, "rgba(118, 24, 70, 1)"); // magenta-red midtone (brighter!)
-      base.addColorStop(0.78, "rgba(84, 18, 68, 1)");  // magenta
-      base.addColorStop(1.00, "rgba(16, 14, 34, 1)");  // blue-violet edge
+      base.addColorStop(0.0, "rgba(14, 12, 32, 1)");
+      base.addColorStop(0.28, "rgba(44, 10, 46, 1)");
+      base.addColorStop(0.55, "rgba(118, 24, 70, 1)");
+      base.addColorStop(0.78, "rgba(84, 18, 68, 1)");
+      base.addColorStop(1.0, "rgba(16, 14, 34, 1)");
       ctx2.fillStyle = base;
       ctx2.fillRect(0, 0, W, H);
 
-      // ---------- 2) Big “magenta mist” lift (SCREEN) ----------
-      // This is what your current render is missing: the poster has bright nebula haze.
       ctx2.globalCompositeOperation = "screen";
       const mistBoost = 0.02 + 0.01 * wallAmp;
-
       const mist = ctx2.createRadialGradient(
-        W * 0.55, H * 0.55, 20,
-        W * 0.55, H * 0.55, Math.max(W, H) * 0.95
+        W * 0.55,
+        H * 0.55,
+        20,
+        W * 0.55,
+        H * 0.55,
+        Math.max(W, H) * 0.95
       );
-      mist.addColorStop(0.00, `rgba(255, 70, 150, ${0.05 + mistBoost})`);
+      mist.addColorStop(0.0, `rgba(255, 70, 150, ${0.05 + mistBoost})`);
       mist.addColorStop(0.25, `rgba(255, 50, 110, ${0.14 + mistBoost * 0.4})`);
       mist.addColorStop(0.55, `rgba(160, 35, 120, ${0.08 + mistBoost * 0.2})`);
-      mist.addColorStop(1.00, "rgba(0,0,0,0)");
+      mist.addColorStop(1.0, "rgba(0,0,0,0)");
       ctx2.fillStyle = mist;
       ctx2.fillRect(0, 0, W, H);
 
-      // ---------- 3) Blue pockets (SCREEN, present but not dominant) ----------
       const blueBoost = 0.04 + 0.08 * wallAmp;
-
       function bluePool(cx, cy, R, a0) {
         const g = ctx2.createRadialGradient(cx, cy, 0, cx, cy, R);
         g.addColorStop(0.0, `rgba(60, 95, 215, ${a0 + blueBoost})`);
@@ -1333,25 +1264,20 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         ctx2.fillStyle = g;
         ctx2.fillRect(0, 0, W, H);
       }
-
-      bluePool(W * 0.16, H * 0.22, Math.max(W, H) * 0.80, 0.10);
-      bluePool(W * 0.90, H * 0.22, Math.max(W, H) * 0.72, 0.09);
+      bluePool(W * 0.16, H * 0.22, Math.max(W, H) * 0.8, 0.1);
+      bluePool(W * 0.9, H * 0.22, Math.max(W, H) * 0.72, 0.09);
       bluePool(W * 0.86, H * 0.86, Math.max(W, H) * 0.78, 0.07);
 
-      // ---------- 4) Texture pass: “distant galaxy” mottling ----------
       const tex = scene.bgTex2;
       if (tex) {
-        // soft-light gives the printed nebula feel
         ctx2.globalCompositeOperation = "soft-light";
         ctx2.globalAlpha = 0.75;
         ctx2.drawImage(tex, 0, 0, W, H);
 
-        // tiny multiply to deepen *some* areas, but do NOT crush
         ctx2.globalCompositeOperation = "multiply";
         ctx2.globalAlpha = 0.10;
         ctx2.drawImage(tex, 0, 0, W, H);
 
-        // screen to keep it sparkly and alive
         ctx2.globalCompositeOperation = "screen";
         ctx2.globalAlpha = 0.18;
         ctx2.drawImage(tex, 0, 0, W, H);
@@ -1360,42 +1286,39 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         ctx2.globalCompositeOperation = "source-over";
       }
 
-      // ---------- 5) Dust + stars (SCREEN) — brighter like the poster ----------
       ctx2.globalCompositeOperation = "screen";
-
       for (const p of scene.dust) {
         const wob = Math.sin(time * p.tw + p.ph) * (0.6 + 1.8 * wallAmp) * (0.25 + p.z);
         const px = p.x + wob;
         const py = p.y + Math.cos(time * 0.6 + p.ph) * (0.4 + wallAmp * 1.2) * (0.25 + p.z);
-
         ctx2.fillStyle = `rgba(255, 150, 195, ${p.a * 0.95})`;
         ctx2.beginPath();
         ctx2.arc(px, py, p.r, 0, Math.PI * 2);
         ctx2.fill();
       }
-
       for (const s of scene.stars) {
         const tw = 0.65 + 0.35 * Math.sin(time * 1.2 + s.ph);
-        ctx2.fillStyle = `rgba(255,235,245,${(s.a * tw) * 1.15})`;
+        ctx2.fillStyle = `rgba(255,235,245,${s.a * tw * 1.15})`;
         ctx2.beginPath();
         ctx2.arc(s.x, s.y, s.r, 0, Math.PI * 2);
         ctx2.fill();
       }
 
-      // ---------- 6) Very gentle vignette (multiply) ----------
-      // Poster edges are darker, but yours got crushed. Keep this subtle.
       ctx2.globalCompositeOperation = "multiply";
       const vig = ctx2.createRadialGradient(
-        W * 0.52, H * 0.52, Math.min(W, H) * 0.18,
-        W * 0.52, H * 0.52, Math.max(W, H) * 0.98
+        W * 0.52,
+        H * 0.52,
+        Math.min(W, H) * 0.18,
+        W * 0.52,
+        H * 0.52,
+        Math.max(W, H) * 0.98
       );
-      vig.addColorStop(0.00, "rgba(0,0,0,0)");
+      vig.addColorStop(0.0, "rgba(0,0,0,0)");
       vig.addColorStop(0.70, "rgba(0,0,0,0.08)");
-      vig.addColorStop(1.00, "rgba(0,0,0,0.18)");
+      vig.addColorStop(1.0, "rgba(0,0,0,0.18)");
       ctx2.fillStyle = vig;
       ctx2.fillRect(0, 0, W, H);
 
-      // Reset
       ctx2.globalCompositeOperation = "source-over";
       ctx2.globalAlpha = 1;
     }
@@ -1413,20 +1336,14 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       const audioEl = audioRef?.current;
       const audioT = audioEl && isFinite(audioEl.currentTime) ? audioEl.currentTime : time;
 
-      // Wall amplitude is subtle: bulbs are the stars; wall stays moody.
       const wallAmp = playing ? amp * 0.16 : 0;
       const loud = clamp(Math.pow(amp, 0.65), 0, 1);
 
-      // Always clear and repaint full background in correct order.
-      ctx.clearRect(0, 0, W, H);
+      // always keep W/H in sync with css box
+      const { w: W, h: H } = box;
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, W, H);
-      ctx.clip();
-
-      // 1) BACKGROUND (FULL-CANVAS) — no black slabs, no flat red wall.
-      drawFullNebulaBackground(ctx, time, wallAmp);
+      // FULL opaque paint every frame = no darkpatch peeking through
+      drawFullNebulaBackground(ctx, time, wallAmp, W, H);
 
       const scene = sceneRef.current;
       if (!scene) {
@@ -1434,7 +1351,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         return;
       }
 
-      // --- chase driver
       if (st.cooldown > 0) st.cooldown -= 1;
 
       const order = orderRef.current;
@@ -1442,20 +1358,12 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       const L = order?.length ? order.length : Math.max(1, bulbsAll.length);
 
       if (playing) {
-        const baseBps = 2;
-        const loudBps = 4 * loud;
-        const hitBps = hit ? 7.0 * (0.35 + hitStrength) : 0;
-
         const last = st.lastAudioT ?? audioT;
         let dt = audioT - last;
         dt = clamp(dt, 0, 0.075);
         st.lastAudioT = audioT;
 
-        // Stronger loudness lock: near-still when quiet, fast when loud
-        const bps =
-          (0.35 + 7.5 * loud * loud) +     // loudness drives most of the motion
-          (hit ? 6.0 * (0.25 + hitStrength) : 0);
-
+        const bps = 0.35 + 7.5 * loud * loud + (hit ? 6.0 * (0.25 + hitStrength) : 0);
         st.drive += bps * dt;
 
         const nextIdx = Math.floor(st.drive) % L;
@@ -1467,19 +1375,16 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         st.lastAudioT = audioT;
       }
 
-      // Even strands: left->right, odd strands: right->left
       const activeSet = new Set();
 
       if (playing) {
         const perStrand = strandBulbIdsRef.current || [];
         const S = perStrand.length;
 
-        // 👇 HOW MANY ROWS (STRANDS) ARE ACTIVE AT ONCE
-        const activeRows = 5;              // try 3–8 (smaller = fewer active rows)
-        const rowStride = 1;               // 1 = contiguous block, 2 = every-other row, etc.
-        const rowStagger = 0.5;           // how “out of phase” rows are (similar to your old phase)
+        const activeRows = 5;
+        const rowStride = 1;
+        const rowStagger = 0.5;
 
-        // Move a “window” of active rows over time (locked to st.drive so it follows music speed)
         const baseRow = Math.floor(st.drive * 0.75) % Math.max(1, S);
 
         for (let r = 0; r < activeRows; r++) {
@@ -1488,19 +1393,17 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
           const n = ids?.length || 0;
           if (!n) continue;
 
-          // same left->right / right->left zig-zag as before
           const dir = si % 2 === 0 ? 1 : -1;
           const phase = si * rowStagger;
 
           let k = Math.floor(st.drive + phase) % n;
           if (k < 0) k += n;
-          if (dir < 0) k = (n - 1) - k;
+          if (dir < 0) k = n - 1 - k;
 
-          activeSet.add(ids[k]); // ✅ one bulb in THIS active row
+          activeSet.add(ids[k]);
         }
       }
 
-      // 2) WIRES (source-over first) + subtle highlight (screen) — correct order under bulbs.
       const strandsSorted = strandsSortedRef.current;
       for (const s of strandsSorted) {
         const aZ = clamp(0.10 + s.z * 0.88, 0, 1);
@@ -1511,13 +1414,12 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
 
         ctx.beginPath();
         for (let u = 0; u <= 1.00001; u += 0.05) {
-          const p = getPoint(s, u, time, wallAmp);
+          const p = getPoint(s, u, time, wallAmp, W, H);
           if (u === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         }
         ctx.stroke();
 
-        // tiny wire specular (not a wall glow)
         if (playing) {
           ctx.globalCompositeOperation = "screen";
           ctx.strokeStyle = `rgba(255,255,255,${0.004 + 0.014 * wallAmp * s.z})`;
@@ -1528,13 +1430,12 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         ctx.globalCompositeOperation = "source-over";
       }
 
-      // 3) BULB GLOWS (screen) then BULB BODIES (source-over) — correct order.
       const bulbsSorted = bulbsSortedRef.current;
       for (const b of bulbsSorted) {
         const s = strandsRef.current[b.si];
         if (!s) continue;
 
-        const p0 = getPoint(s, b.u, time, wallAmp);
+        const p0 = getPoint(s, b.u, time, wallAmp, W, H);
         const isActive = activeSet.has(b.id);
 
         let target = 0;
@@ -1561,15 +1462,11 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         const py = p0.y + b.jy * (1 + b.z * 0.7);
 
         const hue = b.hue + b.hueJ + (playing ? 0.02 * Math.sin(time * 0.6 + b.seed) : 0);
-
-        // Show color ONLY on active bulb; others remain clear/grey when silent or inactive.
         const shown = playing && isActive ? clamp(0.2 + b.on * 0.5, 0, 1) : 0;
 
-        // Glow pass first (screen)
         if (playing && isActive && shown > 0.06) {
           ctx.save();
           ctx.globalCompositeOperation = "screen";
-          // const glowR = b.r * (18.0 + 14.0 * b.z) * (0.55 + shown * 1.6);
           const glowR = b.r * (12 + 10 * b.z) * (0.5 + shown * 1.4);
           const g = ctx.createRadialGradient(px, py, 0, px, py, glowR);
           g.addColorStop(0, hsla(hue, 100, 65, 0.34 * shown * (0.85 + b.z)));
@@ -1580,7 +1477,6 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
           ctx.restore();
         }
 
-        // Sparkles (only near active bulb)
         if (playing && isActive && shown > 0.18 && Math.random() < 0.09) {
           spawnSparkle(
             st,
@@ -1597,12 +1493,10 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         b.swingVel = lerp(b.swingVel, (swingTarget - b.swing) * 0.35, 0.08);
         b.swing += b.swingVel;
 
-        // Bulb body pass (source-over)
         ctx.globalCompositeOperation = "source-over";
         drawBulbUltra(ctx, px, py, b.r * 1.15, shown, hue, b.swing, b.z, playing);
       }
 
-      // 4) Sparkles over everything (screen) — final pass
       if (st.sparkles.length) {
         ctx.globalCompositeOperation = "screen";
         const dt = 1 / 60;
@@ -1623,17 +1517,17 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         ctx.globalCompositeOperation = "source-over";
       }
 
-      // Reset state (prevents “mystery compositing” artifacts)
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
-
-      ctx.restore();
 
       rafRef.current = requestAnimationFrame(draw);
     };
 
     rafRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
+    };
   }, [rect.w, rect.h, vizRef, audioRef]);
 
   return (
@@ -1702,6 +1596,7 @@ function mmss(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+/** ---------- Loudness (RMS) extraction ---------- **/
 function computeRmsSeriesFromPcm(pcm, sr, hop = 1024, win = 2048, maxPoints = 1200) {
   const N = pcm.length;
   const t = [];
@@ -1720,7 +1615,6 @@ function computeRmsSeriesFromPcm(pcm, sr, hop = 1024, win = 2048, maxPoints = 12
     y.push(rms);
   }
 
-  // downsample for UI
   if (t.length > maxPoints) {
     const stride = Math.ceil(t.length / maxPoints);
     const tt = [];
@@ -1735,15 +1629,32 @@ function computeRmsSeriesFromPcm(pcm, sr, hop = 1024, win = 2048, maxPoints = 12
   return { t, y };
 }
 
+// One shared decoding context to avoid Safari/Chrome churn + intermittent failures
+function useSharedDecodeCtx() {
+  const ref = useRef(null);
+  useEffect(() => {
+    return () => {
+      // keep it alive for session; no-op on unmount
+      // (closing contexts aggressively can cause decode failures in some browsers)
+    };
+  }, []);
+  if (!ref.current) ref.current = new (window.AudioContext || window.webkitAudioContext)();
+  return ref;
+}
+
 function useLoudnessForUrl(url) {
   const cacheRef = useRef(new Map());
+  const decodeCtxRef = useSharedDecodeCtx();
+
   const [series, setSeries] = useState({ t: [], y: [] });
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     let alive = true;
 
     async function run() {
+      setErr("");
       if (!url) {
         setSeries({ t: [], y: [] });
         setLoading(false);
@@ -1759,15 +1670,21 @@ function useLoudnessForUrl(url) {
 
       setLoading(true);
       try {
-        const res = await fetch(url);
+        // mode:cors helps when API is a different origin (server must still send CORS headers)
+        const res = await fetch(url, { mode: "cors", credentials: "omit" });
         if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`);
         const buf = await res.arrayBuffer();
 
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = decodeCtxRef.current;
+        if (ctx.state === "suspended") {
+          try {
+            await ctx.resume();
+          } catch {}
+        }
+
         const audioBuf = await ctx.decodeAudioData(buf.slice(0));
         const sr = audioBuf.sampleRate;
 
-        // mono mixdown
         const ch0 = audioBuf.getChannelData(0);
         let pcm = ch0;
         if (audioBuf.numberOfChannels > 1) {
@@ -1780,12 +1697,12 @@ function useLoudnessForUrl(url) {
         const out = computeRmsSeriesFromPcm(pcm, sr);
         cacheRef.current.set(url, out);
 
-        // close context (polite)
-        try { await ctx.close(); } catch {}
-
         if (alive) setSeries(out);
-      } catch {
-        if (alive) setSeries({ t: [], y: [] });
+      } catch (e) {
+        if (alive) {
+          setSeries({ t: [], y: [] });
+          setErr(String(e?.message || e || "loudness decode failed"));
+        }
       } finally {
         if (alive) setLoading(false);
       }
@@ -1795,9 +1712,35 @@ function useLoudnessForUrl(url) {
     return () => {
       alive = false;
     };
-  }, [url]);
+  }, [url, decodeCtxRef]);
 
-  return { series, loading };
+  return { series, loading, err };
+}
+
+/** ---------- URL normalization for reco wav ---------- **/
+function recoWavUrlFromResult(resultObj, uploadId) {
+  if (!resultObj) return "";
+
+  let u =
+    resultObj.extension_wav_url ||
+    resultObj.extension_wav ||
+    resultObj.extension_wav_filename ||
+    resultObj.wav ||
+    resultObj.filename ||
+    "";
+
+  if (!u) return "";
+  if (!/\.wav$/i.test(u)) u = `${u}.wav`;
+
+  if (/^https?:\/\//i.test(u)) return u;
+
+  // backend returns rooted path
+  if (u.startsWith("/")) return `${API}${u}`;
+
+  if (DEMO && uploadId) return `${API}/rag_uploads/${uploadId}/${u}`;
+  if (!DEMO && uploadId) return `${API}/rag/${uploadId}/files/${u}`;
+
+  return `${API}/${u}`;
 }
 
 /** ---------- Main RAG screen ---------- **/
@@ -1824,14 +1767,12 @@ export default function Rag() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Idle");
 
-  // ✅ declare refs early
+  // refs
   const inputAudioRef = useRef(null);
   const recoAudioRef = useRef(null);
 
-  // ✅ declare activeViz BEFORE using it anywhere
   const [activeViz, setActiveViz] = useState("none"); // input | reco | none
 
-  // ✅ derived URLs BEFORE anything that reads them
   const inputUrl = useMemo(() => inputWavUrl(uploadId), [uploadId]);
 
   const activeReco = useMemo(
@@ -1841,23 +1782,13 @@ export default function Rag() {
 
   const recoUrl = useMemo(() => recoWavUrlFromResult(activeReco, uploadId), [activeReco, uploadId]);
 
-  // ✅ UI hooks after refs exist
   const inputUI = useAudioUI(inputAudioRef);
   const recoUI = useAudioUI(recoAudioRef);
 
-  // ✅ only now it's safe to compute these
   const activePlayer = activeViz === "reco" ? "reco" : "input";
-  const activeUI = activePlayer === "reco" ? recoUI : inputUI;
-
   const activeName = uploadMeta?.filename ? niceName(uploadMeta.filename) : "Input";
 
-
-  const loudnessUrl = useMemo(() => {
-    if (activePlayer === "reco") return recoUrl;
-    return inputUrl;
-  }, [activePlayer, recoUrl, inputUrl]);
-
-  // client-side loudness (works for both)
+  const loudnessUrl = useMemo(() => (activePlayer === "reco" ? recoUrl : inputUrl), [activePlayer, recoUrl, inputUrl]);
   const loud = useLoudnessForUrl(loudnessUrl);
 
   const recoListRef = useRef(null);
@@ -1866,12 +1797,11 @@ export default function Rag() {
     if (activeViz === "input") return inputAudioRef;
     if (activeViz === "reco") return recoAudioRef;
     return null;
-  }, [activeViz, inputAudioRef, recoAudioRef]);
+  }, [activeViz]);
 
   function scrollNextReco() {
     const el = recoListRef.current;
     if (!el) return;
-
     const firstCard = el.querySelector(".recoV");
     const step = firstCard ? firstCard.getBoundingClientRect().height + 14 : 180;
     el.scrollBy({ top: step, behavior: "smooth" });
@@ -1888,30 +1818,6 @@ export default function Rag() {
     []
   );
 
-  const kpiMain = useMemo(() => {
-    const s = inputAnalysis?.scores || {};
-    return {
-      energy: s.Energy ?? null,
-      dynamics: s.Dynamics ?? null,
-      complexity: s.Complexity ?? null,
-      duration: inputAnalysis?.duration ?? uploadMeta?.duration_sec ?? null,
-    };
-  }, [inputAnalysis, uploadMeta]);
-
-  const kpiTiny = useMemo(() => {
-    const sr = uploadMeta?.sample_rate ?? inputAnalysis?.sample_rate ?? null;
-    const frames = inputAnalysis?.frames ?? null;
-    return [
-      { k: "Upload ID", v: uploadId ?? null },
-      { k: "SR", v: sr ?? null },
-      { k: "Target", v: `${clampInt(targetDur || 20, 4, 240)}s` },
-      { k: "Top-K", v: String(clampInt(topK || 5, 1, 12)) },
-      { k: "Frames", v: frames ?? null },
-    ].filter((x) => x.v !== null && x.v !== undefined && x.v !== "");
-  }, [uploadId, uploadMeta, inputAnalysis, targetDur, topK]);
-
-  const marqueeRuns = useMemo(() => (runs?.length ? runs.concat(runs) : []), [runs]);
-
   useEffect(() => {
     if (DEMO) {
       setBackendOk(false);
@@ -1925,7 +1831,11 @@ export default function Rag() {
 
     fetch(ragReadinessUrl())
       .then(async (r) => {
-        try { setReadyInfo(await r.json()); } catch { setReadyInfo(null); }
+        try {
+          setReadyInfo(await r.json());
+        } catch {
+          setReadyInfo(null);
+        }
       })
       .catch(() => setReadyInfo(null));
   }, []);
@@ -1944,12 +1854,13 @@ export default function Rag() {
           if (!selectedRunId) setSelectedRunId(j[0].upload_id);
         }
       } catch {
-        // fall back to whatever localStorage has
+        // fall back to localStorage
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // cross-wire active viz based on play/pause
   useEffect(() => {
     const a = inputAudioRef.current;
     const b = recoAudioRef.current;
@@ -1987,20 +1898,50 @@ export default function Rag() {
     try {
       const candidates = DEMO
         ? [
-            // try common demo export names (add/remove as needed)
             `${API}/rag_uploads/${id}/analysis_input.wav.json`,
             `${API}/rag_uploads/${id}/analysis_input.json`,
             `${API}/rag_uploads/${id}/analysis.json`,
             `${API}/rag_uploads/${id}/analysis_input.wav.json?cachebust=${Date.now()}`,
           ]
-        : [
-            `${API}/rag/${id}/analysis`,
-          ];
+        : [`${API}/rag/${id}/analysis`];
 
       const { response } = await fetchFirstOk(candidates);
       setInputAnalysis(await response.json());
     } catch {
       setInputAnalysis(null);
+    }
+  }
+
+  async function loadInputAudioForUpload(id) {
+    const el = inputAudioRef.current;
+    if (!el || !id) return;
+
+    try {
+      // set crossOrigin BEFORE src
+      try {
+        el.crossOrigin = "anonymous";
+      } catch {}
+
+      const candidates = DEMO
+        ? [
+            `${API}/rag_uploads/${id}/input.wav`,
+            `${API}/rag_uploads/${id}/analysis_input.wav`,
+            `${API}/rag_uploads/${id}/input_20s.wav`,
+          ]
+        : [`${API}/rag/${id}/files/input.wav`];
+
+      const url = await resolveFirstOkUrl(candidates);
+
+      el.pause();
+      el.currentTime = 0;
+      el.src = url;
+      el.preload = "auto";
+      el.load();
+    } catch {
+      el.removeAttribute("src");
+      try {
+        el.load();
+      } catch {}
     }
   }
 
@@ -2033,9 +1974,7 @@ export default function Rag() {
       setRuns(addRunEntry(entry));
 
       await fetchInputAnalysis(j.upload_id);
-
       await loadInputAudioForUpload(j.upload_id);
-
     } catch (e) {
       setStatus(String(e?.message || e));
       setUploadId(null);
@@ -2045,35 +1984,6 @@ export default function Rag() {
       setBusy(false);
     }
   }
-
-  // ✅ (optional) ensure input audio loads the new src
-    async function loadInputAudioForUpload(id) {
-      const el = inputAudioRef.current;
-      if (!el || !id) return;
-
-      try {
-        const candidates = DEMO
-          ? [
-              `${API}/rag_uploads/${id}/input.wav`,
-              `${API}/rag_uploads/${id}/analysis_input.wav`,
-              `${API}/rag_uploads/${id}/input_20s.wav`,
-            ]
-          : [
-              `${API}/rag/${id}/files/input.wav`,
-            ];
-
-        const url = await resolveFirstOkUrl(candidates);
-
-        el.pause();
-        el.src = url;
-        el.preload = "auto";
-        el.load();
-      } catch {
-        el.removeAttribute("src");
-        try { el.load(); } catch {}
-      }
-    }
-  
 
   async function stitch() {
     if (DEMO) {
@@ -2095,7 +2005,9 @@ export default function Rag() {
       }
       return;
     }
+
     if (!uploadId) return;
+
     setBusy(true);
     setStatus("Finding extensions…");
     setResults([]);
@@ -2118,14 +2030,13 @@ export default function Rag() {
       setResults(arr);
       setStatus(arr.length ? "Recommendations ready ✦" : "No matches found");
 
-      // ✅ Persist recos in the Past Run entry
       setRuns(
         upsertRunResults(uploadId, {
           filename: uploadMeta?.filename,
           created_at: new Date().toISOString(),
           target_s: clampInt(targetDur || 20, 4, 240),
           top_k: clampInt(topK || 5, 1, 12),
-          results: arr,              // 👈 the magic
+          results: arr,
           last_active_idx: 0,
         })
       );
@@ -2153,51 +2064,69 @@ export default function Rag() {
 
     setStatus(savedResults.length ? "Loaded prior run ✦ (input + recos)" : "Loaded prior run (input only)…");
 
-    // ✅ actually fetch analysis + load audio
     fetchInputAnalysis(id);
     loadInputAudioForUpload(id);
-  } // ✅ <-- THIS was missing
+  }
 
-
+  // RECO PLAY: hardened for “sometimes won’t play”
   async function playRecoDirect(index) {
     const rObj = results?.[index];
     if (!rObj) return;
 
     const url = recoWavUrlFromResult(rObj, uploadId);
-    if (!url) return;
+    if (!url) {
+      setStatus("Reco URL missing");
+      return;
+    }
 
     setActiveIdx(index);
     if (uploadId) setRuns(upsertRunResults(uploadId, { last_active_idx: index }));
 
     setActiveViz("reco");
-    try { inputAudioRef.current?.pause(); } catch {}
+    try {
+      inputAudioRef.current?.pause();
+    } catch {}
 
     const el = recoAudioRef.current;
     if (!el) return;
 
-    console.log("PLAY RECO URL:", url);
-
+    // set crossOrigin BEFORE src to avoid CORS taint / playback weirdness
     try {
-      if (DEMO) {
-        const head = await fetch(url, { method: "GET" });
-        console.log("Reco fetch status:", head.status);
-      }
+      el.crossOrigin = "anonymous";
+    } catch {}
 
-      el.onerror = () => console.log("AUDIO ERROR", el.error, el.src);
+    const attemptPlay = async () => {
+      el.pause();
+      el.currentTime = 0;
 
-      if (el.src !== url) {
-        el.pause();
-        el.src = url;
-        el.preload = "auto";
-        el.load();
-        await Promise.race([once(el, "canplay"), once(el, "loadeddata")]);
-      }
+      el.src = url;
+      el.preload = "auto";
+      el.load();
+
+      // wait for it to actually be playable
+      await Promise.race([
+        once(el, "canplay"),
+        once(el, "loadedmetadata"),
+        once(el, "loadeddata"),
+      ]);
 
       await el.play();
-    } catch (e) {
-      setStatus(String(e?.message || e));
+    };
+
+    try {
+      await attemptPlay();
+    } catch (e1) {
+      // one retry after a tiny delay (helps Safari / slow range responses)
+      try {
+        await new Promise((r) => setTimeout(r, 80));
+        await attemptPlay();
+      } catch (e2) {
+        setStatus(String(e2?.message || e2 || e1?.message || e1));
+      }
     }
   }
+
+  const marqueeRuns = useMemo(() => (runs?.length ? runs.concat(runs) : []), [runs]);
 
   const canStitch = !!uploadId && !busy && (DEMO || (backendOk && ready !== false));
 
@@ -2230,18 +2159,12 @@ export default function Rag() {
                 step="1"
                 value={targetDur}
                 onChange={(e) => {
-                  // allow empty + partial typing without forcing min/max
-                  const v = e.target.value; // string
+                  const v = e.target.value;
                   if (v === "") return setTargetDur("");
-
-                  // keep only digits (optional, but helps)
                   if (!/^\d+$/.test(v)) return;
-
-                  // don't clamp here — just store what user typed
                   setTargetDur(v);
                 }}
                 onBlur={() => {
-                  // clamp when user leaves the field
                   const n = clampInt(targetDur || 20, 4, 240);
                   setTargetDur(String(n));
                 }}
@@ -2293,11 +2216,6 @@ export default function Rag() {
               disabled={busy}
             />
           </div>
-
-          {/* <div className="helperRow">
-            <span className="helper">Upload first</span>
-            <span className="helper">then Extend</span>
-          </div> */}
         </div>
 
         <div className="runsHeader">
@@ -2347,49 +2265,6 @@ export default function Rag() {
           </div>
         </section>
 
-        {/* 2) KPIs next */}
-        {/* <section className="kpiStrip">
-          <div className="kpiStripHead">
-            <div className="kpiStripTitle">
-              <div className="kpiStripTitleLabel">Uploaded</div>
-              <div className="kpiStripTitleValue">{uploadMeta?.filename ? niceName(uploadMeta.filename) : "—"}</div>
-            </div>
-
-            <div className="kpiStatusPill">
-              <span className="diamondGlow" />
-              <span className="statusLine">{status || "Idle"}</span>
-            </div>
-          </div>
-
-          <div className="kpiMain kpiMainPrimary">
-            <div className="kpiMini kpiMiniPrimary">
-              <div className="kpiLabel">Energy</div>
-              <div className="kpiValue">{kpiMain.energy ?? "—"}</div>
-            </div>
-            <div className="kpiMini kpiMiniPrimary">
-              <div className="kpiLabel">Dynamics</div>
-              <div className="kpiValue">{kpiMain.dynamics ?? "—"}</div>
-            </div>
-            <div className="kpiMini kpiMiniPrimary">
-              <div className="kpiLabel">Complexity</div>
-              <div className="kpiValue">{kpiMain.complexity ?? "—"}</div>
-            </div>
-            <div className="kpiMini kpiMiniPrimary">
-              <div className="kpiLabel">Duration</div>
-              <div className="kpiValue">{kpiMain.duration != null ? `${fmt(kpiMain.duration, 2)}s` : "—"}</div>
-            </div>
-          </div>
-
-          <div className="kpiPills kpiPillsOneLine">
-            {kpiTiny.map((it) => (
-              <div key={it.k} className="kpiPill kpiPillTiny" title={`${it.k}: ${it.v}`}>
-                <span className="kpiPillK">{it.k}</span>
-                <span className="kpiPillV">{String(it.v)}</span>
-              </div>
-            ))}
-          </div>
-        </section> */}
-
         {/* 3) Input Player + 4) Loudness below */}
         <section className="panel panelTight">
           <div className="panelHeaderTight">
@@ -2401,6 +2276,7 @@ export default function Rag() {
               </div>
             </div>
           </div>
+
           <div className="playerMini playerMiniFixed">
             <div className="playerMiniTop">
               <div className="playerMiniSub">{uploadMeta?.filename ? niceName(uploadMeta.filename) : "No file"}</div>
@@ -2410,11 +2286,7 @@ export default function Rag() {
 
             {uploadId ? (
               <div className="playerMiniUI playerMiniUIFixed">
-                <button
-                  className={`playBtn ${inputUI.playing ? "isPlaying" : ""}`}
-                  onClick={inputUI.toggle}
-                  type="button"
-                >
+                <button className={`playBtn ${inputUI.playing ? "isPlaying" : ""}`} onClick={inputUI.toggle} type="button">
                   <span className="playIcon" />
                 </button>
 
@@ -2433,12 +2305,6 @@ export default function Rag() {
                   <span className="timeText">{mmss(inputUI.t)}</span>
                   <span className="timeText">{mmss(inputUI.dur)}</span>
                 </div>
-
-                {/* <div className="downloadRowSm">
-                  <a className="linkBtnSm" href={inputUrl} download>
-                    Download input.wav
-                  </a>
-                </div> */}
               </div>
             ) : (
               <div className="empty">Upload a WAV to enable playback.</div>
@@ -2454,10 +2320,15 @@ export default function Rag() {
               height={150}
               palette={palette}
               sparkle={true}
+              hint={
+                loud.loading
+                  ? "computing…"
+                  : loud.err
+                    ? "couldn’t decode (CORS or format) — check server headers"
+                    : "hover for values"
+              }
             />
           </div>
-
- 
         </section>
       </main>
 
@@ -2467,35 +2338,6 @@ export default function Rag() {
           <div className="recoColTitle">Top Suggestions</div>
           <div className="recoColSub">{results.length ? `${activeIdx + 1} / ${results.length}` : "—"}</div>
         </div>
-
-        {/* <div className="recoColToolbar">
-          <button
-            className="chipBtn"
-            onClick={() => results.length && setActiveIdx((p) => (p - 1 + results.length) % results.length)}
-            type="button"
-            disabled={!results.length}
-          >
-            Prev
-          </button>
-          <button
-            className="chipBtn"
-            onClick={() => results.length && setActiveIdx((p) => (p + 1) % results.length)}
-            type="button"
-            disabled={!results.length}
-          >
-            Next
-          </button>
-          <div className="spacer" />
-          <button
-            className="chipBtn strong"
-            onClick={() => results.length && playRecoDirect(activeIdx)}
-            type="button"
-            disabled={!results.length || !activeReco?.extension_wav_url}
-          >
-            ▶ Play
-          </button>
-          <div className="chip scoreChip">Score: {activeReco?.score != null ? fmt(activeReco.score, 4) : "—"}</div>
-        </div> */}
 
         <audio ref={recoAudioRef} src={recoUrl || ""} className="nativeAudioHidden" />
 
@@ -2539,11 +2381,12 @@ export default function Rag() {
           ) : (
             <div className="runsEmpty">No extensions yet. Upload + Find.</div>
           )}
+
           <div className="recoFooterNav">
-          <button className="recoNextBtn" onClick={scrollNextReco} type="button" disabled={!results.length}>
-            Next reco ↓
-          </button>
-        </div>
+            <button className="recoNextBtn" onClick={scrollNextReco} type="button" disabled={!results.length}>
+              Next reco ↓
+            </button>
+          </div>
         </div>
       </aside>
     </div>
