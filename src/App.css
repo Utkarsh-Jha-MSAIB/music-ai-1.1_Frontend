@@ -1300,3 +1300,58 @@ body{
   width:16px;          /* keeps text aligned even when no icon */
   margin-right:10px;
 }
+
+/* Mobile layout */
+@media (max-width: 900px) {
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: auto;
+  }
+
+  .sidebar {
+    width: 100%;
+    position: relative;
+  }
+
+  .main {
+    width: 100%;
+  }
+
+  /* Hide / collapse tesseract on mobile */
+  .tesseract {
+    display: none;
+  }
+
+  /* Make grids stack */
+  .contentGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .leftStack,
+  .rightStack {
+    width: 100%;
+  }
+
+  /* Make charts responsive */
+  .chartCard,
+  .chartWrap {
+    width: 100%;
+  }
+
+  /* Tabs wrap instead of overflow */
+  .trackTabs {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 900px) {
+  .tesseract {
+    display: block;
+    width: 100%;
+    height: 260px;
+  }
+}
