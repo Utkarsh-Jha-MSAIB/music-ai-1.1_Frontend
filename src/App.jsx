@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
-const ENV_DEMO = import.meta.env.VITE_DEMO === "1";
-const API_BACKEND = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-
-// ✅ Demo base is always /demo
-const API_DEMO = "/demo";
+const DEMO = import.meta.env.VITE_DEMO === "1";
+const API = DEMO ? "/demo" : "http://localhost:8000";
 
 /** --- tiny helpers --- **/
 function clamp(n, a, b) {
@@ -26,35 +23,42 @@ function niceName(filename) {
 function isWav(name) {
   return (name || "").toLowerCase().endsWith(".wav");
 }
-// ✅ URL helpers that DON'T depend on hidden globals
-function runsListUrl(apiBase, isDemo) {
-  return isDemo ? `${apiBase}/runs.json` : `${apiBase}/runs`;
+function runsListUrl() {
+  return DEMO ? `${API}/runs.json` : `${API}/runs`;
 }
 
-function runDetailUrl(apiBase, isDemo, runId) {
-  return isDemo
-    ? `${apiBase}/api_runs/${runId}/run_detail.json`
-    : `${apiBase}/runs/${runId}`;
+function runDetailUrl(runId) {
+  // In demo mode we load a prebuilt run_detail.json per run
+  return DEMO ? `${API}/api_runs/${runId}/run_detail.json` : `${API}/runs/${runId}`;
 }
 
-function analysisUrl(apiBase, isDemo, runId, fileName, runDetail) {
-  if (isDemo) {
+function analysisUrl(runId, fileName, runDetail) {
+  if (DEMO) {
+    // Preferred: use run_detail.json mapping if present
     const m = runDetail?.analysis_files;
     if (m && fileName && m[fileName]) return m[fileName];
-    return `${apiBase}/api_runs/${runId}/analysis.json`;
+
+    // Fallback: if you kept analysis_by_file.json as a mapping
+    // (only works if analysis_by_file.json is URL map, not full objects)
+    // return `${API}/api_runs/${runId}/analysis_by_file.json`;
+
+    // Legacy fallback:
+    return `${API}/api_runs/${runId}/analysis.json`;
   }
-  return `${apiBase}/runs/${runId}/analysis?file=${encodeURIComponent(fileName)}`;
+
+  return `${API}/runs/${runId}/analysis?file=${encodeURIComponent(fileName)}`;
 }
 
-function fileUrl(apiBase, isDemo, runId, filename, runDetail) {
-  if (isDemo) return `${apiBase}/api_runs/${runId}/${filename}`;
-  const p = runDetail?.files?.[filename]; // backend returns "/runs/<id>/files/<file>"
-  return p ? `${apiBase}${p}` : "";
+function fileUrl(runId, filename, runDetail) {
+  if (DEMO) return `${API}/api_runs/${runId}/${filename}`;
+  // backend: files map already contains full endpoint path like "/runs/<id>/files/<file>"
+  const p = runDetail?.files?.[filename];
+  return p ? `${API}${p}` : "";
 }
 
-function zipUrl(apiBase, isDemo, runId, runDetail) {
-  if (isDemo) return `${apiBase}/api_runs/${runId}/download.zip`;
-  return runDetail?.download_zip_url ? `${apiBase}${runDetail.download_zip_url}` : "";
+function zipUrl(runId, runDetail) {
+  if (DEMO) return `${API}/api_runs/${runId}/download.zip`; // only if you include it
+  return runDetail?.download_zip_url ? `${API}${runDetail.download_zip_url}` : "";
 }
 
 function pickDefaultTrack(filesDict) {
@@ -777,23 +781,8 @@ export default function App() {
   const [secondsStr, setSecondsStr] = useState("20");
   const [startIndexStr, setStartIndexStr] = useState("1855");
 
+  // connectivity
   const [backendOk, setBackendOk] = useState(false);
-
-  // demo env flag
-  const ENV_DEMO = import.meta.env.VITE_DEMO === "1";
-
-  // backend base (only used when not demo)
-  const API_BACKEND = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-
-  // demo base
-  const API_DEMO = "/demo";
-
-  // ✅ unified mode
-  const IS_DEMO = ENV_DEMO || !backendOk;
-
-  // ✅ unified base URL used everywhere
-  const API = IS_DEMO ? API_DEMO : API_BACKEND;
-
   const [readyInfo, setReadyInfo] = useState(null);
   const ready = readyInfo && typeof readyInfo.ready === "boolean" ? readyInfo.ready : null;
 
@@ -890,7 +879,7 @@ export default function App() {
 
   async function refreshRuns() {
     try {
-      const r = await fetch(runsListUrl(API, IS_DEMO));
+      const r = await fetch(runsListUrl());
       if (!r.ok) throw new Error("runs list failed");
       const j = await r.json();
       setRuns(Array.isArray(j) ? j : []);
@@ -911,32 +900,31 @@ export default function App() {
       setAudioUrl("");
       setStatus("Loading run…");
       try {
-        const r = await fetch(runDetailUrl(API, IS_DEMO, selectedRunId));
+        const r = await fetch(runDetailUrl(selectedRunId));
         if (!r.ok) throw new Error(`failed to load run ${selectedRunId}`);
         const j = await r.json();
         setRunDetail(j);
 
         const defaultTrack = pickDefaultTrack(j.files);
         setSelectedTrack(defaultTrack);
-        if (defaultTrack) setAudioUrl(fileUrl(API, IS_DEMO, selectedRunId, defaultTrack, j));
+        if (defaultTrack) setAudioUrl(fileUrl(selectedRunId, defaultTrack, j));
 
         setStatus("");
       } catch (e) {
         setStatus(String(e?.message || e));
       }
     })();
-  }, [selectedRunId, API, IS_DEMO]);
+  }, [selectedRunId]);
 
   /** when selected track changes -> fetch analysis */
   useEffect(() => {
     if (!selectedRunId || !selectedTrack) return;
     if (!selectedTrack.toLowerCase().endsWith(".wav")) return;
-
     (async () => {
       setAnalysis(null);
       setStatus("Computing analytics…");
       try {
-        const url = analysisUrl(API, IS_DEMO, selectedRunId, selectedTrack, runDetail);
+        const url = analysisUrl(selectedRunId, selectedTrack, runDetail);
         const r = await fetch(url);
         if (!r.ok) throw new Error("analysis failed");
         const j = await r.json();
@@ -946,7 +934,7 @@ export default function App() {
         setStatus(String(e?.message || e));
       }
     })();
-  }, [selectedRunId, selectedTrack, runDetail, API, IS_DEMO]);
+  }, [selectedRunId, selectedTrack]);
 
   async function generate() {
     setStatus("Generating…");
@@ -1351,16 +1339,15 @@ export default function App() {
                   )}
 
                   <div className="downloadRow downloadRowSm">
-                    {zipUrl(API, IS_DEMO, selectedRunId, runDetail) && (
-                      <a className="linkBtn linkBtnSm" href={zipUrl(API, IS_DEMO, selectedRunId, runDetail)}>
+                    {zipUrl(selectedRunId, runDetail) && (
+                      <a className="linkBtn linkBtnSm" href={zipUrl(selectedRunId, runDetail)}>
                         Download ZIP
                       </a>
                     )}
-
                     {selectedTrack && (
                       <a
                         className="linkBtn linkBtnSm"
-                        href={fileUrl(API, IS_DEMO, selectedRunId, selectedTrack, runDetail)}
+                        href={fileUrl(selectedRunId, selectedTrack, runDetail)}
                         download
                       >
                         Download Track
