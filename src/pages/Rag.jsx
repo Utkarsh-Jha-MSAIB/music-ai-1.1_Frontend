@@ -29,6 +29,36 @@ async function fetchFirstOk(urls, options) {
   throw lastErr || new Error("All candidates failed");
 }
 
+const LW_SEED_ENV = import.meta.env.VITE_LW_SEED; // e.g. "stranger-things-v1"
+
+function xfnv1a32(str) {
+  // simple string -> uint32 hash
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function getStableSeed() {
+  // 1) If you set VITE_LW_SEED, it becomes identical everywhere.
+  if (LW_SEED_ENV && String(LW_SEED_ENV).trim()) {
+    return xfnv1a32(String(LW_SEED_ENV).trim());
+  }
+
+  // 2) Fallback: keep your old per-browser persistence
+  try {
+    const existing = localStorage.getItem(LW_SEED_KEY);
+    if (existing) return Number(existing) >>> 0;
+    const seed = (Math.random() * 2 ** 32) >>> 0;
+    localStorage.setItem(LW_SEED_KEY, String(seed));
+    return seed;
+  } catch {
+    return 1337; // final deterministic fallback
+  }
+}
+
 async function resolveFirstOkUrl(urls) {
   const { url } = await fetchFirstOk(urls, { method: "GET" });
   return url;
@@ -1229,7 +1259,12 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       if (!scene) return;
 
       // ---------- 0) Cache a stable “poster texture” (no flicker) ----------
-      if (!scene.bgTex2 || scene.bgTex2W !== W || scene.bgTex2H !== H) {
+      const sameEnough =
+        scene.bgTex2 &&
+        Math.abs(scene.bgTex2W - W) < 40 &&
+        Math.abs(scene.bgTex2H - H) < 40;
+
+      if (!sameEnough) {
         const tex = document.createElement("canvas");
         const TW = Math.max(320, Math.floor(W / 2.6));
         const TH = Math.max(200, Math.floor(H / 2.6));
@@ -1596,7 +1631,8 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
         }
 
         // Sparkles (only near active bulb)
-        if (playing && isActive && shown > 0.18 && Math.random() < 0.09) {
+        const rndSpark = mulberry32((stateRef.current.seed ^ 0x9e3779b9) >>> 0);
+        if (playing && isActive && shown > 0.18 && rndSpark() < 0.09) {
           spawnSparkle(
             st,
             px + (Math.random() - 0.5) * 14,
