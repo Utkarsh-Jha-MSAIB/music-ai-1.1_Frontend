@@ -177,17 +177,28 @@ function upsertRunResults(upload_id, patch) {
 
 /** --- simple responsive size observer --- **/
 function useResizeObserver(ref) {
-  const [rect, setRect] = useState({ width: 0, height: 0 });
+  const [rect, setRect] = useState({ w: 0, h: 0 });
+
   useEffect(() => {
-    if (!ref.current) return;
-    const el = ref.current;
-    const ro = new ResizeObserver((entries) => {
-      const r = entries[0]?.contentRect;
-      if (r) setRect({ width: r.width, height: r.height });
+    if (!wrapRef.current) return;
+
+    const el = wrapRef.current;
+    const ro = new ResizeObserver(() => {
+      // IMPORTANT: use getBoundingClientRect() (includes effects of layout)
+      const r = el.getBoundingClientRect();
+      const w = Math.floor(r.width);
+      const h = Math.floor(r.height);
+      if (w > 0 && h > 0) setRect({ w, h });
     });
+
     ro.observe(el);
+
+    // kick once
+    const r0 = el.getBoundingClientRect();
+    setRect({ w: Math.floor(r0.width), h: Math.floor(r0.height) });
+
     return () => ro.disconnect();
-  }, [ref]);
+  }, []);
   return rect;
 }
 
