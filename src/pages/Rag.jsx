@@ -2098,7 +2098,6 @@ export default function Rag() {
     }
   }
  
-
   async function stitch() {
     if (DEMO) {
       const id = uploadId || selectedRunId;
@@ -2238,6 +2237,7 @@ export default function Rag() {
     }
   }
 
+  const uploadLocked = DEMO; // lock uploads in demo mode (set false if you don't want that)
   const canStitch = !!uploadId && !busy && (DEMO || (backendOk && ready !== false));
 
   return (
@@ -2253,8 +2253,15 @@ export default function Rag() {
         </div>
 
         <div className="statusPills">
-          <span className={`pill ${backendOk ? "pillOk" : "pillBad"}`}>{backendOk ? "Backend OK" : "Backend Down"}</span>
-          {ready !== null && <span className={`pill ${ready ? "pillOk" : "pillWarn"}`}>{ready ? "Ready" : "Not Ready"}</span>}
+          <span className={`pill ${DEMO ? "pillOk" : (backendOk ? "pillOk" : "pillBad")}`}>
+            {DEMO ? "Demo Mode" : (backendOk ? "Backend OK" : "Backend Down")}
+          </span>
+
+          {ready !== null && (
+            <span className={`pill ${ready ? "pillOk" : "pillWarn"}`}>
+              {ready ? "Ready" : "Not Ready"}
+            </span>
+          )}
         </div>
 
         <div className="controlCard">
@@ -2313,12 +2320,38 @@ export default function Rag() {
           </div>
 
           <div className="buttonRow">
-            <button className="buttonSecondary buttonTight" onClick={() => fileRef.current?.click()} disabled={busy}>
+            <button
+              className={`buttonSecondary buttonTight ${uploadLocked ? "isLocked" : ""}`}
+              onClick={() => !uploadLocked && fileRef.current?.click()}
+              disabled={busy || uploadLocked}
+              title={uploadLocked ? "Upload disabled in Demo Mode" : "Upload WAV"}
+            >
+              <span className="btnIconLock" aria-hidden="true">
+                {/* inline lock svg (crisp everywhere) */}
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                  <path
+                    d="M7.5 10V7.8C7.5 5.15 9.6 3 12 3s4.5 2.15 4.5 4.8V10"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M6.8 10h10.4c.9 0 1.6.7 1.6 1.6v7.6c0 .9-.7 1.6-1.6 1.6H6.8c-.9 0-1.6-.7-1.6-1.6v-7.6c0-.9.7-1.6 1.6-1.6Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
               Upload WAV
             </button>
             <button className="button buttonTight" onClick={stitch} disabled={!canStitch}>
               {busy ? "Working…" : "Find ✦"}
             </button>
+
+            <div className="helperRow helperRowSingle">
+              <span className="helper">Click <b>Find ✦</b> to view recos</span>
+            </div>
 
             <input
               ref={fileRef}

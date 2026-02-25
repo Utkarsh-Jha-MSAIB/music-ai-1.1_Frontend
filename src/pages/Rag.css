@@ -1258,3 +1258,34 @@ body{
   height: 100%;
   display: block;
 }
+
+/* helper instruction under buttons */
+.shellRag .helperRowSingle{
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.shellRag .helperRowSingle .helper{
+  font-size: 12px;
+  color: rgba(233,236,255,0.68);
+}
+
+/* lock icon inside Upload button */
+.shellRag .btnIconLock{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  opacity: 0.9;
+}
+.shellRag .btnIconLock svg{
+  display: block;
+}
+
+/* locked look */
+.shellRag .buttonSecondary.isLocked{
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: saturate(0.9);
+}
