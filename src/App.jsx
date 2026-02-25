@@ -776,6 +776,15 @@ function mmss(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+function LockInline({ label = "Locked" }) {
+  return (
+    <span className="lockInline" aria-hidden="true">
+      <span className="lockGlyph" />
+      <span className="lockLabel">{label}</span>
+    </span>
+  );
+}
+
 export default function App() {
   // generation controls
   const [secondsStr, setSecondsStr] = useState("20");
@@ -785,6 +794,9 @@ export default function App() {
   const [backendOk, setBackendOk] = useState(false);
   const [readyInfo, setReadyInfo] = useState(null);
   const ready = readyInfo && typeof readyInfo.ready === "boolean" ? readyInfo.ready : null;
+
+  // UI-only: show demo mode when explicitly DEMO or backend isn't usable yet
+  const IS_DEMO_UI = DEMO || !backendOk || ready === false;
 
   // runs browser
   const [runs, setRuns] = useState([]);
@@ -1071,8 +1083,15 @@ export default function App() {
         </div>
 
         <div className="statusPills">
-          <span className={`pill ${backendOk ? "pillOk" : "pillBad"}`}>{backendOk ? "Backend OK" : "Backend Down"}</span>
-          {ready !== null && <span className={`pill ${ready ? "pillOk" : "pillWarn"}`}>{ready ? "Ready" : "Not Ready"}</span>}
+          <span className={`pill ${IS_DEMO_UI ? "pillWarn" : "pillOk"}`}>
+            {IS_DEMO_UI ? "Demo Mode" : "Backend OK"}
+          </span>
+
+          {ready !== null && (
+            <span className={`pill ${ready ? "pillOk" : "pillWarn"}`}>
+              {ready ? "Ready" : "Not Ready"}
+            </span>
+          )}
         </div>
 
         <div className="controlCard">
@@ -1107,13 +1126,24 @@ export default function App() {
           </div>
 
           <div className="buttonRow">
-            <button className="button buttonTight" onClick={generate} disabled={!backendOk || ready === false}>
-              Generate
-            </button>
-            <button className="buttonSecondary buttonTight" onClick={refreshRuns}>
-              Refresh
-            </button>
-          </div>
+          <button
+            className="button buttonTight"
+            onClick={generate}
+            disabled={!backendOk || ready === false}
+            title={(!backendOk || ready === false) ? "Locked in Demo Mode" : "Generate a new run"}
+          >
+            {(!backendOk || ready === false) ? <LockInline label="Locked" /> : "Generate"}
+          </button>
+
+          <button
+            className="buttonSecondary buttonTight"
+            onClick={refreshRuns}
+            disabled={!backendOk || ready === false}
+            title={(!backendOk || ready === false) ? "Locked in Demo Mode" : "Refresh runs"}
+          >
+            {(!backendOk || ready === false) ? <LockInline label="Locked" /> : "Refresh"}
+          </button>
+        </div>
 
           <div className="helperRow">
             <span className="helper"></span>
