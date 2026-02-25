@@ -82,7 +82,11 @@ function recoWavUrlFromResult(resultObj, uploadId) {
   if (/^https?:\/\//i.test(u)) return u;
 
   // already rooted path returned by backend
-  if (u.startsWith("/")) return `${API}${u}`;
+  if (u.startsWith("/")) {
+    // ✅ prevent "/demo" double-prefix in demo
+    if (API && u.startsWith(API + "/")) return u;
+    return `${API}${u}`;
+  }
 
   // DEMO files live at: /demo/rag_uploads/<uploadId>/<filename>
   if (DEMO && uploadId) return `${API}/rag_uploads/${uploadId}/${u}`;
@@ -1954,7 +1958,11 @@ export default function Rag() {
     const onStop = () => {
       const ap = a && !a.paused && !a.ended;
       const bp = b && !b.paused && !b.ended;
+
       if (!ap && !bp) setActiveViz("none");
+
+      // ✅ if reco isn't actually playing, don't stay on reco
+      if (!bp && activeViz === "reco") setActiveViz(ap ? "input" : "none");
     };
 
     a?.addEventListener("play", onInputPlay);
@@ -2162,20 +2170,18 @@ export default function Rag() {
     setActiveIdx(index);
     if (uploadId) setRuns(upsertRunResults(uploadId, { last_active_idx: index }));
 
-    setActiveViz("reco");
+    // DO NOT switch viz yet
     try { inputAudioRef.current?.pause(); } catch {}
 
     const el = recoAudioRef.current;
     if (!el) return;
 
-    console.log("PLAY RECO URL:", url);
+    // helps WebAudio + remote assets
+    try { el.crossOrigin = "anonymous"; } catch {}
+
+    setStatus("Loading reco…");
 
     try {
-      if (DEMO) {
-        const head = await fetch(url, { method: "GET" });
-        console.log("Reco fetch status:", head.status);
-      }
-
       el.onerror = () => console.log("AUDIO ERROR", el.error, el.src);
 
       if (el.src !== url) {
@@ -2187,8 +2193,16 @@ export default function Rag() {
       }
 
       await el.play();
+
+      // ✅ switch only after play succeeds
+      setActiveViz("reco");
+      setStatus("Reco playing ✦");
     } catch (e) {
-      setStatus(String(e?.message || e));
+      console.log("Reco play failed:", e);
+
+      // ✅ fall back so chart/LightWall don’t get stuck on broken recoUrl
+      setActiveViz("input");
+      setStatus(`Reco failed: ${String(e?.message || e)}`);
     }
   }
 
