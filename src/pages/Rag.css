@@ -1209,3 +1209,27 @@ body{
 .ragLights:hover .ragLightsBadge{
   opacity: 0.92 !important;
 }
+
+/* LightWall container must have a real height */
+.shellRag .lightPanelInner{
+  height: 320px;           /* pick what you want */
+  overflow: hidden;
+}
+
+/* The observed wrapper must fill that height */
+.shellRag .ragLights{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;       /* matches above (or remove if fixed height only) */
+  overflow: hidden;
+}
+
+/* Canvas must match wrapper exactly */
+.shellRag .ragLightsCanvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;          /* prevents inline-canvas baseline quirks */
+}
