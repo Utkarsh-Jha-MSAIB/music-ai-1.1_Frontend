@@ -1352,5 +1352,5 @@ body{
 }
 
 .shell{
-  grid-template-columns: 280px 1fr 280px; /* left fixed, center fluid, right fixed */
+  grid-template-columns: 280px 1fr 240px; /* left fixed, center fluid, right fixed */
 }
