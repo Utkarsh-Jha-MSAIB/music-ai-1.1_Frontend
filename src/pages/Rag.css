@@ -1312,11 +1312,22 @@ body{
   display: block;
 }
 
-.shellRag .lightPanelInner{
-  background:
-    radial-gradient(800px 420px at 20% 15%, rgba(244,63,94,0.18), transparent 60%),
-    radial-gradient(700px 380px at 75% 25%, rgba(168,85,247,0.16), transparent 62%),
-    radial-gradient(900px 520px at 45% 90%, rgba(59,130,246,0.10), transparent 65%),
-    rgba(255,255,255,0.03);
+/* LightWall outer card */
+.shellRag .lightPanel{
+  padding: 12px;              /* keep your card padding */
+  overflow: hidden;
 }
 
+/* The exact area behind the canvas */
+.shellRag .lightPanelInner{
+  height: clamp(260px, 32vh, 380px);
+  border-radius: 18px;
+  overflow: hidden;
+
+  /* IMPORTANT: remove the black filler */
+  background:
+    radial-gradient(900px 520px at 20% 15%, rgba(244,63,94,0.18), transparent 60%),
+    radial-gradient(780px 460px at 75% 25%, rgba(168,85,247,0.16), transparent 62%),
+    radial-gradient(980px 560px at 45% 90%, rgba(59,130,246,0.10), transparent 65%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+}
