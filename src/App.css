@@ -1351,3 +1351,6 @@ body{
   top: auto !important;
 }
 
+.shell{
+  grid-template-columns: 280px 1fr 420px; /* left fixed, center fluid, right fixed */
+}
