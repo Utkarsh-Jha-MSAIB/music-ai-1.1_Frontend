@@ -1335,3 +1335,38 @@ body{
   border-radius:14px;
   box-shadow:0 20px 60px rgba(0,0,0,0.5);
 }
+
+/* =========================
+   DESKTOP COMPATIBILITY PATCH
+   Forces chart + config to stack
+   ========================= */
+
+/* Never allow major stacks to become multi-column accidentally */
+.leftStack,
+.vizStack{
+  display:grid !important;
+  grid-template-columns: 1fr !important;
+  grid-auto-flow: row !important;
+  min-width:0;
+}
+
+/* If you wrap chart + config in this, it will ALWAYS be vertical */
+.chartAndConfig{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+  min-width:0;
+}
+.chartAndConfig > *{ min-width:0; }
+
+/* Shell: reduce hard mins so laptops don't force weird reflow */
+.shell{
+  grid-template-columns: 280px minmax(520px, 1fr) minmax(320px, 460px);
+}
+@media (max-width: 1320px){
+  .shell{ grid-template-columns: 280px 1fr; }
+  .tesseract{ display:none; }
+}
+
+/* Avoid scrollbar-induced width shifts */
+body{ overflow-x:hidden; overflow-y:auto; }
