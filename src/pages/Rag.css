@@ -1331,3 +1331,5 @@ body{
     radial-gradient(980px 560px at 45% 90%, rgba(59,130,246,0.10), transparent 65%),
     linear-gradient(180deg, var(--bg1), var(--bg0));
 }
+
+.lightPanelInner{background:radial-gradient(120% 120% at 50% 35%, #ff4aa022 0%, #5b2bd933 35%, #0b0f25 72%, #070913 100%)}

@@ -1432,7 +1432,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
       );
       vig.addColorStop(0.00, "rgba(0,0,0,0)");
       vig.addColorStop(0.70, "rgba(0,0,0,0.08)");
-      vig.addColorStop(1.00, "rgba(0,0,0,0.06)");
+      vig.addColorStop(1.00, "rgba(0,0,0,0.18)");
       ctx2.fillStyle = vig;
       ctx2.fillRect(0, 0, W, H);
 
