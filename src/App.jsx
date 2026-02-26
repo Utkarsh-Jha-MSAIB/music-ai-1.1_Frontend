@@ -1240,7 +1240,7 @@ export default function App() {
         <section className="kpiStrip">
           <div className="kpiStripHead kpiStripHeadRow">
             {/* Left: Jump link */}
-            <a
+            {/* <a
               className="topJumpLink"
               href="/rag"                 // change to your actual route
               target="_blank"             // remove if same-tab
@@ -1249,7 +1249,7 @@ export default function App() {
             >
               <span className="topJumpDot" />
               Audio RAG
-            </a>
+            </a> */}
 
             {/* Right: Status pill (existing) */}
             <div className="kpiStatusPill">
