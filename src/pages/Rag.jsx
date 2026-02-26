@@ -1425,7 +1425,7 @@ function LightsWall({ audioRef, label = "Tesseract • mix" }) {
 
       // ---------- 6) Very gentle vignette (multiply) ----------
       // Poster edges are darker, but yours got crushed. Keep this subtle.
-      ctx2.globalCompositeOperation = "multiply";
+      // ctx2.globalCompositeOperation = "multiply";
       const vig = ctx2.createRadialGradient(
         W * 0.52, H * 0.52, Math.min(W, H) * 0.18,
         W * 0.52, H * 0.52, Math.max(W, H) * 0.98
