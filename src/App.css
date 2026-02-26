@@ -1350,7 +1350,3 @@ body{
   position: static !important;
   top: auto !important;
 }
-
-.shell{
-  grid-template-columns: 280px 1fr 200px; /* left fixed, center fluid, right fixed */
-}
