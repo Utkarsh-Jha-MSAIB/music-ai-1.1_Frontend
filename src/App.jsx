@@ -821,6 +821,15 @@ export default function App() {
   const audioRef = useRef(null);
   const ui = useAudioUI(audioRef);
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 900);
+    onResize(); // set initial
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
@@ -1079,6 +1088,27 @@ export default function App() {
     if (!runs || runs.length === 0) return [];
     return runs.concat(runs);
   }, [runs]);
+
+    if (isMobile) {
+      return (
+        <div className="mobileDemo">
+          <div className="mobileDemoInner">
+            <div className="mobileDemoTitle">Interactive demo available on desktop</div>
+            <div className="mobileDemoSub">Watch the demo here below</div>
+
+            <video
+              className="mobileDemoVideo"
+              src="/demo-video.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+            />
+          </div>
+        </div>
+      );
+    }
 
   return (
     <div className="shell">
