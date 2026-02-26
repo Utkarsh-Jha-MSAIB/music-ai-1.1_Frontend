@@ -1332,4 +1332,4 @@ body{
     linear-gradient(180deg, var(--bg1), var(--bg0));
 }
 
-.lightPanelInner{background:radial-gradient(120% 120% at 50% 35%, #ff4aa022 0%, #5b2bd933 35%, #0b0f25 72%, #070913 100%)}
+.ragLightsCanvas{background:radial-gradient(120% 120% at 50% 35%, #ff4aa022 0%, #5b2bd933 35%, #0b0f25 72%, #070913 100%)}
