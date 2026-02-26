@@ -1337,51 +1337,17 @@ body{
 }
 
 /* =========================
-   DESKTOP COMPATIBILITY PATCH (SCOPED)
-   ✅ Only affects /rag page (shellRag)
-   ✅ Forces chart + config to stack
-   ✅ Does NOT break Perform Music page
+   FORCE CONFIG BELOW (ALL DESKTOPS)
    ========================= */
 
-/* 0) Scope: add class "shellRag" to Rag page root only
-   Example: <div className="shell shellRag"> ... </div>
-*/
-
-/* Avoid scrollbar-induced width shifts (safe globally) */
-body{ overflow-x:hidden; overflow-y:auto; }
-
-/* 1) Only on Rag page: keep middle content as a single column feed */
-.shellRag .leftStack,
-.shellRag .vizStack{
-  display:grid;
-  grid-template-columns: 1fr;
-  grid-auto-flow: row;
-  min-width:0;
+/* Always stack content: leftStack then rightStack */
+.contentGrid{
+  grid-template-columns: 1fr !important;
 }
 
-/* 2) Only on Rag page: if you wrap chart + config in this, it will ALWAYS be vertical */
-.shellRag .chartAndConfig{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap:10px;
-  min-width:0;
-}
-.shellRag .chartAndConfig > *{ min-width:0; }
-
-/* 3) Only on Rag page: make the 3-column desktop grid more forgiving */
-.shellRag.shell{
-  grid-template-columns: 280px minmax(520px, 1fr) minmax(320px, 460px);
+/* Remove sticky behavior when stacked */
+.rightStack{
+  position: static !important;
+  top: auto !important;
 }
 
-/* Drop right column earlier on smaller laptops */
-@media (max-width: 1320px){
-  .shellRag.shell{ grid-template-columns: 280px 1fr; }
-  .shellRag .tesseract{ display:none; }
-}
-
-/* Single column on small screens */
-@media (max-width: 980px){
-  .shellRag.shell{ grid-template-columns: 1fr; padding: 10px; }
-  .shellRag .sidebar{ position:relative; height:auto; }
-  .shellRag .main{ height:auto; overflow:visible; }
-}
